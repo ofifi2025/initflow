@@ -299,18 +299,6 @@
       0%,100% { box-shadow:0 0 0 2px rgba(217,119,6,.35), 0 0 4px 1px rgba(217,119,6,.15); }
       50%      { box-shadow:0 0 0 8px rgba(217,119,6,.12), 0 0 18px 6px rgba(217,119,6,.18); }
     }
-    /* 看板主表格中的根因任务框同步样式 */
-    .bar.st-root-cause { border:3px solid #cf1322 !important; animation:pulse-root-bar 2s ease-in-out infinite !important; }
-    @keyframes pulse-root-bar {
-      0%,100% { box-shadow:0 0 0 2px rgba(207,19,34,.3), 0 2px 4px rgba(0,0,0,.05); }
-      50%      { box-shadow:0 0 0 10px rgba(207,19,34,.1), 0 0 20px 5px rgba(207,19,34,.15); }
-    }
-    /* 看板主表格中的次路径卡点任务框 — 琥珀色呼吸边框 */
-    .bar.st-sec-cause { border:3px solid #d97706 !important; animation:pulse-sec-bar 2s ease-in-out infinite !important; }
-    @keyframes pulse-sec-bar {
-      0%,100% { box-shadow:0 0 0 2px rgba(217,119,6,.3), 0 2px 4px rgba(0,0,0,.05); }
-      50%      { box-shadow:0 0 0 10px rgba(217,119,6,.1), 0 0 20px 5px rgba(217,119,6,.15); }
-    }
     /* T2: 强制锁定 days 文字颜色 */
     .ai-cp-days { font-size:9px; color:#94a3b8 !important; font-family:'SF Mono',SFMono-Regular,Menlo,monospace; }
     .ai-cp-arrow { color:#cbd5e1; margin:0 12px; align-self:center; display:flex; flex-shrink:0; padding-bottom:14px; }
@@ -758,7 +746,7 @@ function applyBar(id) {
   const bar  = document.getElementById('bar-' + id);
   const pill = document.getElementById('pill-' + id);
   if (!bar || !pill) return;
-  bar.classList.remove('st-pending','st-progress','st-done','st-root-cause','st-crit-pending');
+  bar.classList.remove('st-pending','st-progress','st-done','st-crit-pending');
   if (meta.bar) bar.classList.add(meta.bar);
   if (getStatus(id) === 'pending' && CRIT_IDS.indexOf(id) !== -1) bar.classList.add('st-crit-pending');
   pill.className   = 'spill ' + meta.pill + (getStatus(id) === 'pending' && CRIT_IDS.indexOf(id) !== -1 ? ' sp-crit' : '');
@@ -1440,19 +1428,6 @@ function analyzeProgress() {
 
   output.innerHTML = html;
 
-  // 同步看板主表格：清除旧高亮，为根因和次路径卡点添加呼吸边框
-  ALL_IDS.forEach(function(id) {
-    var bar = document.getElementById('bar-' + id);
-    if (bar) { bar.classList.remove('st-root-cause'); bar.classList.remove('st-sec-cause'); }
-  });
-  if (rootCause && (bannerClass === 'red' || bannerClass === 'orange')) {
-    var rootBar = document.getElementById('bar-' + rootCause);
-    if (rootBar) rootBar.classList.add('st-root-cause');
-  }
-  if (secBottleneck) {
-    var secBar = document.getElementById('bar-' + secBottleneck);
-    if (secBar) secBar.classList.add('st-sec-cause');
-  }
 
   try { localStorage.setItem('gantt-dates', JSON.stringify({start:startVal, target:targetVal})); } catch(e) {}
 }
