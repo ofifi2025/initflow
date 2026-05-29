@@ -137,6 +137,11 @@
 
     .bar.st-pending  { background:#fef6ee!important; border-color:#fcd9aa!important; color:#92400e!important; font-weight:400!important; box-shadow:none!important; }
     .bar.st-progress { background:#ecfdf5!important; border:1.5px solid #34d399!important; color:#065f46!important; font-weight:700!important; animation:pulse-progress 2.2s ease-in-out infinite; }
+    .bar.st-blocked  { background:#fef2f2!important; border:1.5px solid #f87171!important; color:#991b1b!important; font-weight:700!important; animation:pulse-blocked 2.2s ease-in-out infinite; }
+    @keyframes pulse-blocked {
+      0%,100% { box-shadow:0 0 0 2px rgba(248,113,113,.3), 0 2px 4px rgba(0,0,0,.05); }
+      50%      { box-shadow:0 0 0 5px rgba(248,113,113,.10), 0 2px 4px rgba(0,0,0,.05); }
+    }
     .bar.st-done     { background:#F5F5F5!important; border:none!important; color:#BDBDBD!important; font-weight:400!important; opacity:0.38!important; box-shadow:none!important; text-decoration:line-through!important; text-decoration-color:rgba(189,189,189,0.7)!important; text-decoration-thickness:1px!important; }
     .bar.st-done .spill { text-decoration:none!important; }
     .bar.st-done .crit  { text-decoration:none!important; }
@@ -148,6 +153,7 @@
     .spill { display:inline-block; font-size:8px; font-weight:600; padding:1px 6px; border-radius:8px; margin-top:4px; letter-spacing:.2px; }
     .sp-pending  { background:#fde8c8; color:#92400e; }
     .sp-progress { background:#a7f3d0; color:#065f46; }
+    .sp-blocked  { background:#fecaca; color:#991b1b; }
     .sp-done     { background:rgba(148,163,184,.18); color:#94a3b8; }
 
     .crit, .flag-icon {
@@ -180,6 +186,7 @@
   <div class="stat-row">
     <div class="stat-chip"><div class="stat-dot" style="background:#94a3b8"></div><span id="c-pending">—</span> 待启动</div>
     <div class="stat-chip"><div class="stat-dot" style="background:#6366f1"></div><span id="c-progress">—</span> 进行中</div>
+    <div class="stat-chip"><div class="stat-dot" style="background:#ef4444"></div><span id="c-blocked">—</span> 已阻塞</div>
     <div class="stat-chip"><div class="stat-dot" style="background:#10b981"></div><span id="c-done">—</span> 已完成</div>
   </div>
 </div>
@@ -259,7 +266,7 @@
     <!-- ══ 运维 · 1 row ══ -->
     <div class="dl ds dl-infra" id="dl-yunwei"><span class="dl-icon">🛠️</span>运维</div>
     <div class="pc ds" style="grid-column:span 2"><div class="bar bar-ph1-dash" id="bar-env" onclick="cycleBar('env')"><span class="crit">!</span>【确认】测试账号（用于① CI/CD 全链路就绪 ② 流量统一入口（路由+鉴权+SSL）③ 日志集中采集可检索 ④ 指标采集+基础告警覆盖 ⑤ 密钥与配置统一托管）<br/><span class="spill sp-pending" id="pill-env">待启动</span></div></div>
-    <div class="pc ds lc"><div class="bar bar-ph3" id="bar-srv2" onclick="cycleBar('srv2')">【切换】正式环境部署<br/><span style="font-size:9px;opacity:.75;font-weight:400;">需技术侧评估线上风险/注意事项 · 弹性扩容 · 自动化告警</span><br/><span class="spill sp-pending" id="pill-srv2">待启动</span></div></div>
+    <div class="pc ds lc"><div class="bar bar-ph3" id="bar-srv2" onclick="cycleBar('srv2')">【切换】正式环境部署<br/><span class="spill sp-pending" id="pill-srv2">待启动</span></div></div>
 
     <!-- ══ 生态中心 · 1 row ══ -->
     <div class="dl ds dl-infra" id="dl-shengtai"><span class="dl-icon">🌐</span>生态中心</div>
@@ -289,10 +296,11 @@
 
 <script>
 const ALL_IDS = ['biz','s1','s2','rcv1','rcv2','cloud','cloudp','email','repo','domain','icp','env','srv2','depa','depb','depc'];
-const CYCLE   = ['pending','progress','done'];
+const CYCLE   = ['pending','progress','blocked','done'];
 const META    = {
   pending:  { label:'待启动', pill:'sp-pending',  bar:'st-pending'  },
   progress: { label:'进行中', pill:'sp-progress', bar:'st-progress' },
+  blocked:  { label:'已阻塞', pill:'sp-blocked',  bar:'st-blocked'  },
   done:     { label:'已完成', pill:'sp-done',     bar:'st-done'     },
 };
 
@@ -332,7 +340,7 @@ function applyBar(id) {
   const bar  = document.getElementById('bar-' + id);
   const pill = document.getElementById('pill-' + id);
   if (!bar || !pill) return;
-  bar.classList.remove('st-pending','st-progress','st-done');
+  bar.classList.remove('st-pending','st-progress','st-blocked','st-done');
   if (meta.bar) bar.classList.add(meta.bar);
   pill.className   = 'spill ' + meta.pill;
   pill.textContent = meta.label;
@@ -362,10 +370,12 @@ function updateDeptStrip() {
     const ids = ALL_IDS.filter(id => TASK_DEPT[id] === name);
     if (!ids.length) return;
     const progress = ids.filter(id => getStatus(id) === 'progress').length;
+    const blocked  = ids.filter(id => getStatus(id) === 'blocked').length;
     const done     = ids.filter(id => getStatus(id) === 'done').length;
     let cls = 'dc-ok', stat = `${done}/${ids.length} 完成`;
-    if (progress > 0)            { cls = 'dc-active'; stat = `${progress} 项进行中`; }
-    else if (done === ids.length) { cls = 'dc-done';   stat = '✓ 全部完成'; }
+    if (blocked > 0)              { cls = 'dc-blocked'; stat = `${blocked} 项阻塞`; }
+    else if (progress > 0)        { cls = 'dc-active'; stat = `${progress} 项进行中`; }
+    else if (done === ids.length)  { cls = 'dc-done';   stat = '✓ 全部完成'; }
     const chip = document.createElement('div');
     chip.className = `dept-chip ${cls}`;
     chip.innerHTML = `<span>${name}</span><span class="dept-chip-stat">${stat}</span>`;
@@ -374,13 +384,15 @@ function updateDeptStrip() {
 }
 
 function updateProgress() {
-  const done = ALL_IDS.filter(id => getStatus(id) === 'done').length;
-  const prog = ALL_IDS.filter(id => getStatus(id) === 'progress').length;
+  const done    = ALL_IDS.filter(id => getStatus(id) === 'done').length;
+  const prog    = ALL_IDS.filter(id => getStatus(id) === 'progress').length;
+  const blocked = ALL_IDS.filter(id => getStatus(id) === 'blocked').length;
   const pct  = Math.round(done / ALL_IDS.length * 100);
   document.getElementById('prog-fill').style.width  = pct + '%';
   document.getElementById('prog-count').textContent = `${done} / ${ALL_IDS.length} 已完成`;
-  document.getElementById('c-pending').textContent  = ALL_IDS.length - done - prog;
+  document.getElementById('c-pending').textContent  = ALL_IDS.length - done - prog - blocked;
   document.getElementById('c-progress').textContent = prog;
+  document.getElementById('c-blocked').textContent  = blocked;
   document.getElementById('c-done').textContent     = done;
 }
 
@@ -407,6 +419,8 @@ const DEPS = [
   { from:'bar-rcv1',   to:'bar-rcv2',   color:'#0891b2', exit:'direct' },
   { from:'bar-email',  to:'bar-rcv2',   color:'#8b5cf6', exit:'left-left' },
   { from:'bar-email',  to:'bar-domain', color:'#8b5cf6', exit:'left-left' },
+  { from:'bar-biz',    to:'bar-email',  color:'#0891b2' },
+  { from:'bar-s1',     to:'bar-email',  color:'#f97316' },
 ];
 
 function drawArrows() {
