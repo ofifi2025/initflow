@@ -137,7 +137,9 @@
 
     .bar.st-pending  { background:#fef6ee!important; border-color:#fcd9aa!important; color:#92400e!important; font-weight:400!important; box-shadow:none!important; }
     .bar.st-progress { background:#ecfdf5!important; border:1.5px solid #34d399!important; color:#065f46!important; font-weight:700!important; animation:pulse-progress 2.2s ease-in-out infinite; }
-    .bar.st-done     { background:rgba(148,163,184,.12)!important; border:1.5px solid rgba(148,163,184,.25)!important; color:#94a3b8!important; font-weight:400!important; opacity:1; box-shadow:none!important; }
+    .bar.st-done     { background:#F5F5F5!important; border:none!important; color:#BDBDBD!important; font-weight:400!important; opacity:0.38!important; box-shadow:none!important; text-decoration:line-through!important; text-decoration-color:rgba(189,189,189,0.7)!important; text-decoration-thickness:1px!important; }
+    .bar.st-done .spill { text-decoration:none!important; }
+    .bar.st-done .crit  { text-decoration:none!important; }
     @keyframes pulse-progress {
       0%,100% { box-shadow:0 0 0 2px rgba(52,211,153,.3), 0 2px 4px rgba(0,0,0,.05); }
       50%      { box-shadow:0 0 0 5px rgba(52,211,153,.10), 0 2px 4px rgba(0,0,0,.05); }
@@ -226,7 +228,7 @@
     <div class="pc"></div><div class="pc lc"></div>
     <!-- 收款账户：Phase1 确认渠道 + Phase2-3 注册账户（长周期） -->
     <div class="pc"><div class="bar bar-ph1" id="bar-rcv1" onclick="cycleBar('rcv1')">【确认】用户支付渠道<br/><span class="spill sp-pending" id="pill-rcv1">待启动</span></div></div>
-    <div class="pc lc" style="grid-column:span 2;"><div class="bar bar-ph2-dash" id="bar-rcv2" onclick="cycleBar('rcv2')" style="width:calc(100% - 75px);margin-left:30px;margin-right:45px;">【注册】收款账户（长周期）<br/><span class="spill sp-pending" id="pill-rcv2">待启动</span></div></div>
+    <div class="pc lc" style="grid-column:span 2;"><div class="bar bar-ph2-dash" id="bar-rcv2" onclick="cycleBar('rcv2')" style="width:calc(100% - 90px);margin-left:45px;margin-right:45px;">【注册】收款账户（长周期）<br/><span class="spill sp-pending" id="pill-rcv2">待启动</span></div></div>
 
     <!-- ══ 采购 · 2 rows ══ -->
     <div class="dl ds dl-fin" id="dl-caigou" style="grid-row:span 2"><span class="dl-icon">🛒</span>采购</div>
@@ -248,11 +250,11 @@
     <!-- ══ PMO · 2 rows ══ -->
     <div class="dl ds dl-pmo" id="dl-pmo" style="grid-row:span 2"><span class="dl-icon">📊</span>PMO</div>
     <div class="pc ds"><div class="bar bar-ph1" id="bar-repo" onclick="cycleBar('repo')">【创建】项目 GitLab 仓库<br/><span class="spill sp-pending" id="pill-repo">待启动</span></div></div>
-    <div class="pc ds"><div class="bar bar-ph2" id="bar-domain" onclick="cycleBar('domain')" style="width:calc(100% - 45px);margin-left:30px;margin-right:15px;">【购买】域名 + SSL 证书<br/><span class="spill sp-pending" id="pill-domain">待启动</span></div></div>
+    <div class="pc ds"><div class="bar bar-ph2" id="bar-domain" onclick="cycleBar('domain')" style="width:calc(100% - 60px);margin-left:45px;margin-right:15px;">【购买】域名 + SSL 证书<br/><span class="spill sp-pending" id="pill-domain">待启动</span></div></div>
     <div class="pc ds lc"></div>
 
     <div class="pc"></div>
-    <div class="pc lc" style="grid-column:span 2;"><div class="bar bar-ph2-dash" id="bar-icp" onclick="cycleBar('icp')" style="width:calc(100% - 75px);margin-left:30px;margin-right:45px;">【备案】域名（国内网站需要）<br/><span class="spill sp-pending" id="pill-icp">待启动</span></div></div>
+    <div class="pc lc" style="grid-column:span 2;"><div class="bar bar-ph2-dash" id="bar-icp" onclick="cycleBar('icp')" style="width:calc(100% - 90px);margin-left:45px;margin-right:45px;">【备案】域名（国内网站需要）<br/><span class="spill sp-pending" id="pill-icp">待启动</span></div></div>
 
     <!-- ══ 运维 · 1 row ══ -->
     <div class="dl ds dl-infra" id="dl-yunwei"><span class="dl-icon">🛠️</span>运维</div>
@@ -339,11 +341,15 @@ function applyBar(id) {
   if (crit) {
     if (getStatus(id) === 'done') {
       crit.textContent = '✓';
-      crit.style.background = '#10b981';
-      crit.style.boxShadow = '0 1px 3px rgba(16,185,129,.4)';
+      crit.style.background = 'transparent';
+      crit.style.border = '1.5px solid #BDBDBD';
+      crit.style.color = '#BDBDBD';
+      crit.style.boxShadow = 'none';
     } else {
       crit.textContent = '!';
       crit.style.background = '#ef4444';
+      crit.style.border = 'none';
+      crit.style.color = '#fff';
       crit.style.boxShadow = '0 1px 3px rgba(239,68,68,.4)';
     }
   }
