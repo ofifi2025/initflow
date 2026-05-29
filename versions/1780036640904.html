@@ -1,0 +1,862 @@
+<!DOCTYPE html><script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Saas Tob Tracker",
+  "schemaVersion": 1,
+  "description": "ToB SaaS 新项目资源配置进度看板，含 17 项任务，按阶段分组，可点击切换状态、填写负责人，进度持久保存。"
+}
+</script>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>预立项｜资源配置进度甘特图</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #f8fafc; color: #1e293b;
+      padding: 16px 16px 40px; font-size: 13px;
+    }
+
+    h1 { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+    .subtitle { font-size: 11px; color: #94a3b8; margin-bottom: 12px; }
+
+    .prog-card { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:11px 14px; margin-bottom:10px; }
+    .prog-top  { display:flex; justify-content:space-between; align-items:center; margin-bottom:7px; }
+    .prog-label { font-size:11px; color:#64748b; font-weight:600; }
+    .prog-count { font-size:12px; font-weight:700; color:#1e293b; }
+    .prog-bar-bg { height:6px; background:#e2e8f0; border-radius:3px; overflow:hidden; }
+    .prog-bar-fill { height:100%; background:linear-gradient(90deg,#6366f1,#10b981); border-radius:3px; transition:width .3s ease; }
+    .stat-row { display:flex; gap:10px; margin-top:9px; flex-wrap:wrap; }
+    .stat-chip { display:flex; align-items:center; gap:4px; font-size:10px; color:#64748b; background:#f8fafc; border:1px solid #e2e8f0; border-radius:5px; padding:2px 7px; }
+    .stat-dot  { width:7px; height:7px; border-radius:50%; }
+
+    .dept-strip { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; margin-bottom:10px; }
+    .dept-strip-label { font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
+    .dept-chips { display:flex; gap:8px; flex-wrap:wrap; }
+    .dept-chip { display:flex; align-items:center; gap:6px; border-radius:6px; padding:5px 11px; font-size:11px; font-weight:600; border:1px solid; }
+    .dept-chip-stat { font-size:10px; font-weight:400; opacity:.8; }
+    .dc-ok      { background:#f8fafc; color:#64748b;  border-color:#e2e8f0; }
+    .dc-active  { background:#eff6ff; color:#1d4ed8;  border-color:#bfdbfe; }
+    .dc-blocked { background:#fff1f2; color:#be123c;  border-color:#fecdd3; }
+    .dc-done    { background:#f0fdf4; color:#15803d;  border-color:#bbf7d0; }
+
+    .gantt-scroll { overflow-x:auto; width:100%; }
+    .gantt-outer {
+      width: 100%;
+      min-width: 750px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #dep-svg {
+      position:absolute; top:0; left:0;
+      width:100%; height:100%;
+      pointer-events:none; overflow:visible; z-index:5;
+    }
+
+    /* Grid: dept | Phase1 | Phase2 | Phase3 */
+    .g-grid {
+      display: grid;
+      grid-template-columns: 65px 1fr 1fr 1fr;
+    }
+
+    .gh-cell {
+      padding: 12px 12px 10px; text-align: center;
+      border-right: 1px solid #e2e8f0;
+      border-bottom: 2px solid #e2e8f0;
+      background: #fafbfc;
+      position: relative;
+    }
+    .gh-cell::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 4px; border-radius: 0 0 2px 2px;
+    }
+    .gh-cell.gh-ph1::before { background: #f97316; }
+    .gh-cell.gh-ph2::before { background: #10b981; }
+    .gh-cell.gh-ph3::before { background: #6366f1; }
+    .gh-cell:first-child  { border-right: 2px solid #e2e8f0; background: #f1f5f9; }
+    .gh-cell:first-child::before { display: none; }
+    .gh-cell:last-child   { border-right: none; }
+    /* Step arrow between headers */
+    .gh-cell.gh-ph1::after, .gh-cell.gh-ph2::after {
+      content: '›'; position: absolute; right: -7px; top: 50%; transform: translateY(-50%);
+      font-size: 18px; font-weight: 300; color: #94a3b8; z-index: 2;
+    }
+    .gh-num   { font-size:8px; font-weight:600; text-transform:uppercase; letter-spacing:.8px; color:#b0b8c4; margin-bottom:4px; }
+    .gh-name  { font-size:13px; font-weight:800; color:#1e293b; letter-spacing:.2px; }
+    .gh-badge { display:inline-block; font-size:9px; font-weight:600; padding:2px 7px; border-radius:10px; margin-top:5px; }
+    .b-day1 { background:#fff0e6; color:#b45309; }
+    .b-ph1  { background:#d1fae5; color:#065f46; }
+    .b-ph2  { background:#ede9fe; color:#5b21b6; }
+
+    .dl {
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 4px;
+      font-size: 10px; font-weight: 700; letter-spacing: .3px;
+      padding: 10px 4px; text-align: center;
+      background: #f1f5f9;
+      color: #4b5563;
+      border-right: 2px solid #e2e8f0;
+      box-shadow: inset -3px 0 6px rgba(0,0,0,.04);
+    }
+    .dl-icon { font-size: 15px; line-height: 1; }
+    /* Department color groups */
+    .dl-biz    { background:#fff7ed!important; border-right-color:#fed7aa!important; }
+    .dl-fin    { background:#faf5ff!important; border-right-color:#e9d5ff!important; }
+    .dl-pmo    { background:#f0fdf4!important; border-right-color:#bbf7d0!important; }
+    .dl-infra  { background:#f0f9ff!important; border-right-color:#bae6fd!important; }
+    .ds { border-top: 1px solid #e2e8f0; }
+
+    .pc {
+      position: relative;
+      padding: 10px 0;              /* no horizontal padding — bar's own 12px margin governs */
+      border-right: 1px solid #e2e8f0;
+      border-bottom: 1px solid #f1f5f9;
+      min-height: 78px;
+      display: flex; align-items: center;
+    }
+    .pc.lc { border-right: none; }
+
+    /* Fixed 10px side margin regardless of column span → edges always align */
+    .bar { position:relative; width:calc(100% - 30px); margin:0 auto; padding:10px 16px; min-height:60px; display:flex; flex-direction:column; justify-content:center; border-radius:11px; font-size:10px; font-weight:600; line-height:1.55; cursor:pointer; transition:filter .15s, box-shadow .15s, transform .12s; user-select:none; box-shadow:0 2px 4px rgba(0,0,0,.05); }
+    .bar:hover { filter:brightness(.97); box-shadow:0 3px 10px rgba(0,0,0,.10); transform:translateY(-1px); }
+
+    /* Phase-based colors — muted Morandi palette */
+    .bar-ph1      { background:#fef6ee; color:#92400e; border:1px solid #fcd9aa; }
+    .bar-ph1-dash { background:#fef6ee; color:#92400e; border:1px dashed #fde8c8; }
+    .bar-ph2      { background:#f0fdf4; color:#166534; border:1px solid #86efac; }
+    .bar-ph2-dash { background:#f0fdf4; color:#166534; border:1px dashed #bbf7d0; }
+    .bar-ph3      { background:#eff6ff; color:#1e3a8a; border:1px solid #bfdbfe; }
+
+    .bar.st-pending  { background:#fef6ee!important; border-color:#fcd9aa!important; color:#92400e!important; font-weight:400!important; box-shadow:none!important; }
+    .bar.st-progress { background:#ecfdf5!important; border:1.5px solid #34d399!important; color:#065f46!important; font-weight:700!important; animation:pulse-progress 2.2s ease-in-out infinite; }
+    .bar.st-blocked  { background:#fef2f2!important; border:1.5px solid #f87171!important; color:#991b1b!important; font-weight:700!important; animation:pulse-blocked 2.2s ease-in-out infinite; }
+    @keyframes pulse-blocked {
+      0%,100% { box-shadow:0 0 0 2px rgba(248,113,113,.3), 0 2px 4px rgba(0,0,0,.05); }
+      50%      { box-shadow:0 0 0 5px rgba(248,113,113,.10), 0 2px 4px rgba(0,0,0,.05); }
+    }
+    .bar.st-done     { background:#F5F5F5!important; border:none!important; color:#BDBDBD!important; font-weight:400!important; opacity:0.38!important; box-shadow:none!important; text-decoration:line-through!important; text-decoration-color:rgba(189,189,189,0.7)!important; text-decoration-thickness:1px!important; }
+    .bar.st-done .spill { text-decoration:none!important; }
+    .bar.st-done .crit  { text-decoration:none!important; }
+    @keyframes pulse-progress {
+      0%,100% { box-shadow:0 0 0 2px rgba(52,211,153,.3), 0 2px 4px rgba(0,0,0,.05); }
+      50%      { box-shadow:0 0 0 5px rgba(52,211,153,.10), 0 2px 4px rgba(0,0,0,.05); }
+    }
+
+    .spill { display:inline-block; font-size:8px; font-weight:600; padding:1px 6px; border-radius:8px; margin-top:4px; letter-spacing:.2px; }
+    .sp-pending  { background:#fde8c8; color:#92400e; }
+    .sp-progress { background:#a7f3d0; color:#065f46; }
+    .sp-blocked  { background:#fecaca; color:#991b1b; }
+    .sp-done     { background:rgba(148,163,184,.18); color:#94a3b8; }
+
+    .crit, .flag-icon {
+      position: absolute;
+      top: -6px; right: -6px;
+      font-size: 10px; line-height: 1;
+      background: #ef4444; color: #fff;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; letter-spacing: 0;
+      box-shadow: 0 1px 3px rgba(239,68,68,.4);
+      pointer-events: none; z-index: 10;
+    }
+
+    /* dep-arrow styles set via JS inline styles for hover transition */
+
+    /* Block Toast */
+    .block-toast {
+      position: absolute;
+      top: -40px; left: 50%;
+      transform: translateX(-50%);
+      background: #dc2626;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 6px;
+      white-space: nowrap;
+      z-index: 9999;
+      box-shadow: 0 4px 12px rgba(220,38,38,.3);
+      animation: toast-in .2s ease;
+      pointer-events: none;
+    }
+    .block-toast::after {
+      content: '';
+      position: absolute;
+      bottom: -5px; left: 50%;
+      transform: translateX(-50%);
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 5px solid #dc2626;
+    }
+    @keyframes toast-in {
+      from { opacity:0; transform:translateX(-50%) translateY(4px); }
+      to   { opacity:1; transform:translateX(-50%) translateY(0); }
+    }
+
+    /* AI Insight Card */
+    .ai-insight-card { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:14px; margin-top:10px; }
+    .ai-insight-header { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+    .ai-icon { font-size:16px; }
+    .ai-title { font-size:12px; font-weight:700; color:#1e293b; }
+    .ai-insight-body { display:flex; flex-direction:column; gap:10px; }
+    .ai-input-row { display:flex; align-items:center; gap:10px; }
+    .ai-input-row label { font-size:11px; font-weight:600; color:#64748b; white-space:nowrap; }
+    .ai-date-input { font-size:12px; padding:5px 10px; border:1px solid #e2e8f0; border-radius:6px; color:#1e293b; outline:none; }
+    .ai-date-input:focus { border-color:#6366f1; box-shadow:0 0 0 2px rgba(99,102,241,.15); }
+    .ai-btn { display:none; }
+    .ai-btn:hover { opacity:.85; }
+    .ai-output { font-size:11px; line-height:1.7; color:#475569; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px; min-height:60px; white-space:pre-wrap; }
+  </style>
+</head>
+<body>
+
+<h1>预立项｜资源配置进度甘特图</h1>
+<p class="subtitle">点击任务条切换状态 · 箭头表示依赖关系 · 进度自动保存</p>
+
+<div class="prog-card">
+  <div class="prog-top">
+    <span class="prog-label">整体进度</span>
+    <span class="prog-count" id="prog-count">—</span>
+  </div>
+  <div class="prog-bar-bg"><div class="prog-bar-fill" id="prog-fill" style="width:0%"></div></div>
+  <div class="stat-row">
+    <div class="stat-chip"><div class="stat-dot" style="background:#94a3b8"></div><span id="c-pending">—</span> 待启动</div>
+    <div class="stat-chip"><div class="stat-dot" style="background:#6366f1"></div><span id="c-progress">—</span> 进行中</div>
+    <div class="stat-chip"><div class="stat-dot" style="background:#ef4444"></div><span id="c-blocked">—</span> 已阻塞</div>
+    <div class="stat-chip"><div class="stat-dot" style="background:#10b981"></div><span id="c-done">—</span> 已完成</div>
+  </div>
+</div>
+
+<div class="dept-strip">
+  <div class="dept-strip-label">部门状态</div>
+  <div class="dept-chips" id="dept-chips"></div>
+</div>
+
+<div class="gantt-scroll">
+<div id="gantt-wrap" style="position:relative;min-width:750px;width:100%">
+<div class="gantt-outer" id="gantt-outer">
+  <div class="g-grid">
+
+    <!-- Header -->
+    <div class="gh-cell" style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;justify-content:center;">部门</div>
+    <div class="gh-cell gh-ph1">
+      <div class="gh-num">Phase 1</div>
+      <div class="gh-name">信息确认</div>
+      <span class="gh-badge b-day1">⏱ 3日内完成</span>
+    </div>
+    <div class="gh-cell gh-ph2">
+      <div class="gh-num">Phase 2</div>
+      <div class="gh-name">基建和凭证采购</div>
+      <span class="gh-badge b-ph1">⏱ 1周内完成</span>
+    </div>
+    <div class="gh-cell gh-ph3">
+      <div class="gh-num">Phase 3</div>
+      <div class="gh-name">部署建设</div>
+      <span class="gh-badge b-ph2">📅 根据预计上线日期倒推</span>
+    </div>
+
+    <!-- ══ 业务方 · 1 row ══ -->
+    <div class="dl dl-biz" id="dl-biz"><span class="dl-icon">🏢</span>业务方</div>
+    <div class="pc"><div class="bar bar-ph1" id="bar-biz" onclick="cycleBar('biz')"><span class="crit">!</span>【确认】官网域名<br/><span class="spill sp-pending" id="pill-biz">待启动</span></div></div>
+    <div class="pc"></div>
+    <div class="pc lc"></div>
+
+    <!-- ══ 财务 · 3 rows ══ -->
+    <div class="dl ds dl-fin" id="dl-caiwu" style="grid-row:span 3"><span class="dl-icon">💰</span>财务</div>
+    <!-- 运营主体 -->
+    <div class="pc ds"><div class="bar bar-ph1" id="bar-s1" onclick="cycleBar('s1')"><span class="crit">!</span>【确认】运营主体<br/><span class="spill sp-pending" id="pill-s1">待启动</span></div></div>
+    <div class="pc ds"></div><div class="pc ds lc"></div>
+    <!-- 付款主体 -->
+    <div class="pc"><div class="bar bar-ph1" id="bar-s2" onclick="cycleBar('s2')">【确认】采购付款主体<br/><span class="spill sp-pending" id="pill-s2">待启动</span></div></div>
+    <div class="pc"></div><div class="pc lc"></div>
+    <!-- 收款账户：Phase1 确认渠道 + Phase2-3 注册账户（长周期） -->
+    <div class="pc"><div class="bar bar-ph1" id="bar-rcv1" onclick="cycleBar('rcv1')">【确认】用户支付渠道<br/><span class="spill sp-pending" id="pill-rcv1">待启动</span></div></div>
+    <div class="pc lc" style="grid-column:span 2;"><div class="bar bar-ph2-dash" id="bar-rcv2" onclick="cycleBar('rcv2')" style="width:calc(100% - 90px);margin-left:45px;margin-right:45px;">【注册】收款账户（长周期）<br/><span class="spill sp-pending" id="pill-rcv2">待启动</span></div></div>
+
+    <!-- ══ 采购 · 2 rows ══ -->
+    <div class="dl ds dl-fin" id="dl-caigou" style="grid-row:span 2"><span class="dl-icon">🛒</span>采购</div>
+    <!-- 运营账号 -->
+    <div class="pc ds"></div>
+    <div class="pc ds"><div class="bar bar-ph2" id="bar-cloud" onclick="cycleBar('cloud')">【注册】云账号 - 运营账号<br/><span class="spill sp-pending" id="pill-cloud">待启动</span></div></div>
+    <div class="pc ds lc"></div>
+    <!-- 生产账号 -->
+    <div class="pc"></div>
+    <div class="pc"><div class="bar bar-ph2" id="bar-cloudp" onclick="cycleBar('cloudp')">【注册】云账号 - 生产账号<br/><span class="spill sp-pending" id="pill-cloudp">待启动</span></div></div>
+    <div class="pc lc"></div>
+
+    <!-- ══ 行政/IT · 1 row ══ -->
+    <div class="dl ds dl-pmo" id="dl-it"><span class="dl-icon">🖥️</span>行政/IT</div>
+    <div class="pc ds"></div>
+    <div class="pc ds"><div class="bar bar-ph2" id="bar-email" onclick="cycleBar('email')"><span class="crit">!</span>【注册】项目邮箱/手机号<br/><span class="spill sp-pending" id="pill-email">待启动</span></div></div>
+    <div class="pc ds lc"></div>
+
+    <!-- ══ PMO · 2 rows ══ -->
+    <div class="dl ds dl-pmo" id="dl-pmo" style="grid-row:span 2"><span class="dl-icon">📊</span>PMO</div>
+    <div class="pc ds"><div class="bar bar-ph1" id="bar-repo" onclick="cycleBar('repo')">【创建】项目 GitLab 仓库<br/><span class="spill sp-pending" id="pill-repo">待启动</span></div></div>
+    <div class="pc ds"><div class="bar bar-ph2" id="bar-domain" onclick="cycleBar('domain')" style="width:calc(100% - 60px);margin-left:45px;margin-right:15px;">【购买】域名 + SSL 证书<br/><span class="spill sp-pending" id="pill-domain">待启动</span></div></div>
+    <div class="pc ds lc"></div>
+
+    <div class="pc"></div>
+    <div class="pc lc" style="grid-column:span 2;"><div class="bar bar-ph2-dash" id="bar-icp" onclick="cycleBar('icp')" style="width:calc(100% - 90px);margin-left:45px;margin-right:45px;">【备案】域名（国内网站需要）<br/><span class="spill sp-pending" id="pill-icp">待启动</span></div></div>
+
+    <!-- ══ 运维 · 1 row ══ -->
+    <div class="dl ds dl-infra" id="dl-yunwei"><span class="dl-icon">🛠️</span>运维</div>
+    <div class="pc ds" style="grid-column:span 2"><div class="bar bar-ph1-dash" id="bar-env" onclick="cycleBar('env')"><span class="crit">!</span>【确认】测试账号（用于① CI/CD 全链路就绪 ② 流量统一入口（路由+鉴权+SSL）③ 日志集中采集可检索 ④ 指标采集+基础告警覆盖 ⑤ 密钥与配置统一托管）<br/><span class="spill sp-pending" id="pill-env">待启动</span></div></div>
+    <div class="pc ds lc"><div class="bar bar-ph3" id="bar-srv2" onclick="cycleBar('srv2')">【切换】正式环境部署<br/><span class="spill sp-pending" id="pill-srv2">待启动</span></div></div>
+
+    <!-- ══ 生态中心 · 1 row ══ -->
+    <div class="dl ds dl-infra" id="dl-shengtai"><span class="dl-icon">🌐</span>生态中心</div>
+    <div class="pc ds"></div><div class="pc ds"></div>
+    <div class="pc ds lc"><div class="bar bar-ph3" id="bar-depa" onclick="cycleBar('depa')">【部署】生态中心私有化<br/><span class="spill sp-pending" id="pill-depa">待启动</span></div></div>
+
+    <!-- ══ 云资源 · 2 rows ══ -->
+    <div class="dl ds dl-infra" id="dl-yunziyuan" style="grid-row:span 2"><span class="dl-icon">☁️</span>云资源</div>
+    <div class="pc ds"></div><div class="pc ds"></div>
+    <div class="pc ds lc"><div class="bar bar-ph3" id="bar-depb" onclick="cycleBar('depb')">【部署】代理服务<br/><span class="spill sp-pending" id="pill-depb">待启动</span></div></div>
+
+    <div class="pc"></div><div class="pc"></div>
+    <div class="pc lc"><div class="bar bar-ph3" id="bar-depc" onclick="cycleBar('depc')">【部署】LLM AI 网关<br/><span class="spill sp-pending" id="pill-depc">待启动</span></div></div>
+
+  </div>
+</div>
+<svg id="dep-svg" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible;z-index:5;">
+  <defs>
+    <!-- context-stroke: marker inherits the path's stroke color automatically -->
+    <marker id="arr-r" markerWidth="5" markerHeight="4" refX="4.5" refY="2" orient="auto">
+      <polygon points="0 0,5 2,0 4" fill="context-stroke"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+</div>
+
+<div class="ai-insight-card">
+  <div class="ai-insight-header">
+    <span class="ai-icon">🤖</span>
+    <span class="ai-title">AI 进度洞察</span>
+  </div>
+  <div class="ai-insight-body">
+    <div class="ai-input-row">
+      <label for="start-date">预立项启动日</label>
+      <input type="date" id="start-date" class="ai-date-input"/>
+      <label for="target-date">预计上线日期</label>
+      <input type="date" id="target-date" class="ai-date-input"/>
+    </div>
+    <div class="ai-output" id="ai-output">请选择预立项启动日和预计上线日期，AI 将自动生成洞察建议</div>
+  </div>
+</div>
+
+<script>
+const ALL_IDS = ['biz','s1','s2','rcv1','rcv2','cloud','cloudp','email','repo','domain','icp','env','srv2','depa','depb','depc'];
+const CYCLE   = ['pending','progress','blocked','done'];
+const META    = {
+  pending:  { label:'待启动', pill:'sp-pending',  bar:'st-pending'  },
+  progress: { label:'进行中', pill:'sp-progress', bar:'st-progress' },
+  blocked:  { label:'已阻塞', pill:'sp-blocked',  bar:'st-blocked'  },
+  done:     { label:'已完成', pill:'sp-done',     bar:'st-done'     },
+};
+
+const DEPTS = ['业务方','财务','采购','行政/IT','PMO','运维','生态中心','云资源'];
+
+const TASK_DEPT = {
+  biz:'业务方',
+  s1:'财务', s2:'财务', rcv1:'财务', rcv2:'财务',
+  cloud:'采购', cloudp:'采购',
+  email:'行政/IT',
+  repo:'PMO', domain:'PMO', icp:'PMO',
+  env:'运维', srv2:'运维',
+  depa:'生态中心',
+  depb:'云资源', depc:'云资源',
+};
+
+const DL_IDS = { '业务方':'dl-biz','财务':'dl-caiwu','采购':'dl-caigou','行政/IT':'dl-it','PMO':'dl-pmo','运维':'dl-yunwei','生态中心':'dl-shengtai','云资源':'dl-yunziyuan' };
+
+let state = {};
+try { state = JSON.parse(localStorage.getItem('gantt-v2') || '{}'); } catch(e) {}
+
+function getStatus(id) { return state[id]?.status || 'pending'; }
+
+function cycleBar(id) {
+  const current = getStatus(id);
+  const next = CYCLE[(CYCLE.indexOf(current) + 1) % CYCLE.length];
+
+  // 依赖硬约束：切换到 progress 或 done 时，检查前置依赖是否全部完成
+  if (next === 'progress' || next === 'done') {
+    const barId = 'bar-' + id;
+    const predecessors = DEPS.filter(d => d.to === barId).map(d => d.from.replace('bar-',''));
+    const unfinished = predecessors.filter(pid => getStatus(pid) !== 'done');
+    if (unfinished.length > 0) {
+      // 获取未完成前置任务名称
+      const names = unfinished.map(pid => {
+        const el = document.getElementById('bar-' + pid);
+        return el ? el.textContent.replace(/待启动|进行中|已完成|已阻塞/g,'').trim().split('\n')[0] : pid;
+      });
+      showBlockToast(id, names);
+      return; // 阻止状态切换
+    }
+  }
+
+  if (!state[id]) state[id] = {};
+  state[id].status = next;
+  try { localStorage.setItem('gantt-v2', JSON.stringify(state)); } catch(e) {}
+  applyBar(id);
+  updateProgress();
+  updateDeptStrip();
+  drawArrows();
+  if (document.getElementById('target-date').value && document.getElementById('start-date').value) analyzeProgress();
+}
+
+// 气泡提示：红色警示，3秒自动消失
+function showBlockToast(id, depNames) {
+  // 移除已有气泡
+  document.querySelectorAll('.block-toast').forEach(t => t.remove());
+
+  const bar = document.getElementById('bar-' + id);
+  if (!bar) return;
+
+  const toast = document.createElement('div');
+  toast.className = 'block-toast';
+  toast.textContent = `无法操作：请先完成前置依赖项「${depNames.join('、')}」`;
+  bar.appendChild(toast);
+
+  // 3秒后自动消失
+  setTimeout(() => toast.remove(), 3000);
+  // 点击任意位置消失
+  const dismiss = () => { toast.remove(); document.removeEventListener('click', dismiss); };
+  setTimeout(() => document.addEventListener('click', dismiss), 10);
+}
+
+function applyBar(id) {
+  const meta = META[getStatus(id)];
+  const bar  = document.getElementById('bar-' + id);
+  const pill = document.getElementById('pill-' + id);
+  if (!bar || !pill) return;
+  bar.classList.remove('st-pending','st-progress','st-blocked','st-done');
+  if (meta.bar) bar.classList.add(meta.bar);
+  pill.className   = 'spill ' + meta.pill;
+  pill.textContent = meta.label;
+  // Update crit badge: ! → ✓ when done
+  const crit = bar.querySelector('.crit');
+  if (crit) {
+    if (getStatus(id) === 'done') {
+      crit.textContent = '✓';
+      crit.style.background = 'transparent';
+      crit.style.border = '1.5px solid #BDBDBD';
+      crit.style.color = '#BDBDBD';
+      crit.style.boxShadow = 'none';
+    } else {
+      crit.textContent = '!';
+      crit.style.background = '#ef4444';
+      crit.style.border = 'none';
+      crit.style.color = '#fff';
+      crit.style.boxShadow = '0 1px 3px rgba(239,68,68,.4)';
+    }
+  }
+}
+
+function updateDeptStrip() {
+  const c = document.getElementById('dept-chips');
+  c.innerHTML = '';
+  DEPTS.forEach(name => {
+    const ids = ALL_IDS.filter(id => TASK_DEPT[id] === name);
+    if (!ids.length) return;
+    const progress = ids.filter(id => getStatus(id) === 'progress').length;
+    const blocked  = ids.filter(id => getStatus(id) === 'blocked').length;
+    const done     = ids.filter(id => getStatus(id) === 'done').length;
+    let cls = 'dc-ok', stat = `${done}/${ids.length} 完成`;
+    if (blocked > 0)              { cls = 'dc-blocked'; stat = `${blocked} 项阻塞`; }
+    else if (progress > 0)        { cls = 'dc-active'; stat = `${progress} 项进行中`; }
+    else if (done === ids.length)  { cls = 'dc-done';   stat = '✓ 全部完成'; }
+    const chip = document.createElement('div');
+    chip.className = `dept-chip ${cls}`;
+    chip.innerHTML = `<span>${name}</span><span class="dept-chip-stat">${stat}</span>`;
+    c.appendChild(chip);
+  });
+}
+
+function updateProgress() {
+  const done    = ALL_IDS.filter(id => getStatus(id) === 'done').length;
+  const prog    = ALL_IDS.filter(id => getStatus(id) === 'progress').length;
+  const blocked = ALL_IDS.filter(id => getStatus(id) === 'blocked').length;
+  const pct  = Math.round(done / ALL_IDS.length * 100);
+  document.getElementById('prog-fill').style.width  = pct + '%';
+  document.getElementById('prog-count').textContent = `${done} / ${ALL_IDS.length} 已完成`;
+  document.getElementById('c-pending').textContent  = ALL_IDS.length - done - prog - blocked;
+  document.getElementById('c-progress').textContent = prog;
+  document.getElementById('c-blocked').textContent  = blocked;
+  document.getElementById('c-done').textContent     = done;
+}
+
+// Orthogonal routing; 'right-right' arrows loop along the right edge and enter target from the right
+const DEPS = [
+  // ── existing ──────────────────────────────────────────────────
+  { from:'bar-biz',    to:'bar-rcv2',   color:'#0891b2' },
+  { from:'bar-rcv2',   to:'bar-depa',   color:'#f97316', exit:'right-right' },
+  { from:'bar-biz',    to:'bar-domain', color:'#0891b2' },
+  { from:'bar-biz',    to:'bar-icp',    color:'#0891b2' },
+  { from:'bar-s1',     to:'bar-cloud',  color:'#f97316' },
+  { from:'bar-s1',     to:'bar-cloudp', color:'#f97316' },
+  { from:'bar-s1',     to:'bar-domain', color:'#f97316' },
+  { from:'bar-cloud',  to:'bar-srv2',   color:'#6366f1' },
+  { from:'bar-env',    to:'bar-srv2',   color:'#64748b', exit:'direct' },
+  { from:'bar-cloud',  to:'bar-depa',   color:'#6366f1' },
+  { from:'bar-cloudp', to:'bar-depb',   color:'#9333ea' },
+  { from:'bar-cloudp', to:'bar-depc',   color:'#9333ea' },
+  // ── new ───────────────────────────────────────────────────────
+  { from:'bar-s2',     to:'bar-cloud',  color:'#f97316' },
+  { from:'bar-s2',     to:'bar-cloudp', color:'#f97316' },
+  { from:'bar-rcv1',   to:'bar-rcv2',   color:'#0891b2', exit:'direct' },
+  { from:'bar-email',  to:'bar-rcv2',   color:'#8b5cf6', exit:'left-left' },
+  { from:'bar-email',  to:'bar-domain', color:'#8b5cf6', exit:'left-left' },
+  { from:'bar-biz',    to:'bar-email',  color:'#0891b2' },
+  { from:'bar-s1',     to:'bar-email',  color:'#f97316' },
+];
+
+function drawArrows() {
+  const outer = document.getElementById('gantt-outer');
+  const svg   = document.getElementById('dep-svg');
+  const or    = outer.getBoundingClientRect();
+  svg.querySelectorAll('.dep-arrow').forEach(p => p.remove());
+  svg.style.width  = outer.offsetWidth  + 'px';
+  svg.style.height = outer.offsetHeight + 'px';
+
+  // Column gutters (midpoint between adjacent header cell edges)
+  const hdrs = document.querySelectorAll('.gh-cell');
+  const hr   = Array.from(hdrs).map(h => h.getBoundingClientRect());
+  const g12  = (hr[1].right + hr[2].left) / 2 - or.left;  // Ph1↔Ph2
+  const g23  = (hr[2].right + hr[3].left) / 2 - or.left;  // Ph2↔Ph3
+
+  function rel(el) {
+    const r = el.getBoundingClientRect();
+    return { right: r.right - or.left, left: r.left - or.left,
+             cy: (r.top + r.bottom) / 2 - or.top, height: r.height };
+  }
+
+  // Choose gutter so the final H segment always arrives in the correct direction
+  function chooseGutter(x0, x1) {
+    if (x0 < x1) {
+      const cands = [g12, g23].filter(g => g > x0 + 2 && g < x1 - 2);
+      return cands.length ? cands[cands.length - 1] : (x0 + x1) / 2;
+    } else {
+      const cands = [g12, g23].filter(g => g < x1 - 2);
+      return cands.length ? cands[cands.length - 1] : x1 - 30;
+    }
+  }
+
+  // ── Pass 1: count entry ports per side (left vs right) ───────────────────────
+  const fromTotal = {}, toLeftTotal = {}, toRightTotal = {};
+  const fromSeen  = {}, toLeftSeen  = {}, toRightSeen  = {};
+  DEPS.forEach(dep => {
+    fromTotal[dep.from] = (fromTotal[dep.from] || 0) + 1;
+    if (dep.exit === 'right-right') {
+      toRightTotal[dep.to] = (toRightTotal[dep.to] || 0) + 1;
+    } else {
+      toLeftTotal[dep.to]  = (toLeftTotal[dep.to]  || 0) + 1;
+    }
+  });
+  DEPS.forEach(dep => {
+    if (fromSeen[dep.from] == null) fromSeen[dep.from] = 0;
+    dep._fi = fromSeen[dep.from]++;
+    dep._fn = fromTotal[dep.from];
+    if (dep.exit === 'right-right') {
+      if (toRightSeen[dep.to] == null) toRightSeen[dep.to] = 0;
+      dep._ti = toRightSeen[dep.to]++;
+      dep._tn = toRightTotal[dep.to];
+    } else {
+      if (toLeftSeen[dep.to] == null) toLeftSeen[dep.to] = 0;
+      dep._ti = toLeftSeen[dep.to]++;
+      dep._tn = toLeftTotal[dep.to];
+    }
+  });
+
+  // Pre-compute gutter X per dep (no X stagger → shared-gutter paths form one bus trunk)
+  DEPS.forEach(dep => {
+    const fEl = document.getElementById(dep.from);
+    const tEl = document.getElementById(dep.to);
+    if (!fEl || !tEl) return;
+    if (dep.exit === 'direct') {
+      dep._gx = 0; // unused for direct lines
+    } else if (dep.exit === 'right-right') {
+      // Dynamic: vertical line sits 15px to the right of whichever bar extends further
+      const f = rel(fEl), t = rel(tEl);
+      dep._gx = Math.round(Math.max(f.right, t.right) + 15);
+    } else if (dep.exit === 'left-left') {
+      // Dynamic: vertical line sits 15px to the left of whichever bar starts earlier
+      const f = rel(fEl), t = rel(tEl);
+      dep._gx = Math.round(Math.min(f.left, t.left) - 15);
+    } else {
+      const f = rel(fEl), t = rel(tEl);
+      dep._gx = Math.round(chooseGutter(f.right, t.left));
+    }
+  });
+
+  const MIN_TAIL = 15; // matches the 15px bar margin from calc(100% - 30px)
+
+  // ── Pass 2: draw ─────────────────────────────────────────────────────────────
+  DEPS.forEach(dep => {
+    const fEl = document.getElementById(dep.from);
+    const tEl = document.getElementById(dep.to);
+    if (!fEl || !tEl || dep._gx == null) return;
+    const f = rel(fEl), t = rel(tEl);
+
+    // Bus routing: all arrows from the same source share y0 = f.cy (single exit trunk)
+    const x0 = Math.round(f.right);
+    const y0 = Math.round(f.cy);
+
+    // Target port: proportional distribution by bar height
+    const N  = dep._tn;
+    const y1 = Math.round(t.cy + (dep._ti - (N - 1) / 2) * (t.height / (N + 1)));
+
+    let d;
+    if (dep.exit === 'direct') {
+      // Straight line: source right-center → target left-center (same row, no bends)
+      d = `M${x0} ${y0} L${Math.round(t.left)} ${Math.round(t.cy)}`;
+    } else if (dep.exit === 'right-right') {
+      // Exit: source.right → gx (15px beyond furthest bar edge)
+      // Entry: gx → target.right (backtrack into target bar from right)
+      const x1 = Math.round(t.right);
+      d = `M${x0} ${y0} H${dep._gx} V${y1} H${x1}`;
+    } else if (dep.exit === 'left-left') {
+      // Exit from source LEFT edge, loop left, enter target from LEFT
+      const lx0 = Math.round(f.left);
+      const x1  = Math.round(t.left);
+      d = `M${lx0} ${y0} H${dep._gx} V${y1} H${x1}`;
+    } else {
+      let gx = dep._gx;
+      if (t.left - gx < MIN_TAIL) gx = t.left - MIN_TAIL;
+      const x1 = Math.round(t.left);
+      d = `M${x0} ${y0} H${gx} V${y1} H${x1}`;
+    }
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('class', 'dep-arrow');
+    path.setAttribute('data-from',  dep.from);
+    path.setAttribute('data-to',    dep.to);
+    path.setAttribute('data-color', dep.color);
+    path.setAttribute('marker-end', 'url(#arr-r)');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('stroke-linecap',  'round');
+    path.style.stroke          = dep.color;
+    path.style.strokeWidth     = '2';
+    path.style.strokeDasharray = 'none';
+    path.style.opacity         = '0';
+    path.style.transition      = 'opacity 0.2s ease';
+    svg.appendChild(path);
+  });
+}
+
+// Full-chain recursive dependency highlighting (upstream + downstream)
+function highlightArrows(barId, on) {
+  const svg   = document.getElementById('dep-svg');
+  const paths = svg.querySelectorAll('.dep-arrow');
+
+  if (!on) {
+    paths.forEach(p => { p.style.opacity = '0'; p.style.strokeWidth = '2'; });
+    return;
+  }
+
+  const fullId = 'bar-' + barId;
+
+  // Collect every arrow on chains leading TO or FROM fullId (recursive)
+  const relevantDeps = new Set();
+
+  function findUpstream(id, seen = new Set()) {
+    if (seen.has(id)) return; seen.add(id);
+    DEPS.forEach(dep => {
+      if (dep.to === id) { relevantDeps.add(dep); findUpstream(dep.from, seen); }
+    });
+  }
+  function findDownstream(id, seen = new Set()) {
+    if (seen.has(id)) return; seen.add(id);
+    DEPS.forEach(dep => {
+      if (dep.from === id) { relevantDeps.add(dep); findDownstream(dep.to, seen); }
+    });
+  }
+  findUpstream(fullId);
+  findDownstream(fullId);
+
+  paths.forEach(p => {
+    const from = p.getAttribute('data-from');
+    const to   = p.getAttribute('data-to');
+    const dep  = DEPS.find(d => d.from === from && d.to === to);
+    if (dep && relevantDeps.has(dep)) {
+      // Direct = immediately connected to hovered bar; indirect = rest of chain
+      p.style.opacity     = '1';
+      p.style.strokeWidth = '2';
+    }
+  });
+}
+
+function initHover() {
+  ALL_IDS.forEach(id => {
+    const el = document.getElementById('bar-' + id);
+    if (!el) return;
+    el.addEventListener('mouseenter', () => highlightArrows(id, true));
+    el.addEventListener('mouseleave', () => highlightArrows(id, false));
+  });
+}
+
+ALL_IDS.forEach(id => applyBar(id));
+updateProgress();
+updateDeptStrip();
+window.addEventListener('load', () => { drawArrows(); initHover(); });
+window.addEventListener('resize', drawArrows);
+
+document.getElementById('target-date').addEventListener('change', analyzeProgress);
+document.getElementById('start-date').addEventListener('change', analyzeProgress);
+
+// 阶段定义：Phase1 占总工期 15%，Phase2 占 40%，Phase3 占 45%
+const PHASE_IDS = {
+  ph1: ['biz','s1','s2','rcv1','repo'],
+  ph2: ['rcv2','cloud','cloudp','email','domain','icp'],
+  ph3: ['env','srv2','depa','depb','depc'],
+};
+const PHASE_NAMES = { ph1:'信息确认', ph2:'基建和凭证采购', ph3:'部署建设' };
+const PHASE_RATIO = { ph1:0.15, ph2:0.40, ph3:0.45 };
+
+// 依赖影响链：被阻塞任务会影响哪些下游
+const DOWNSTREAM = {};
+DEPS.forEach(dep => {
+  const from = dep.from.replace('bar-','');
+  const to   = dep.to.replace('bar-','');
+  if (!DOWNSTREAM[from]) DOWNSTREAM[from] = [];
+  DOWNSTREAM[from].push(to);
+});
+function getAllDownstream(id, visited = new Set()) {
+  if (visited.has(id)) return visited;
+  visited.add(id);
+  (DOWNSTREAM[id] || []).forEach(d => getAllDownstream(d, visited));
+  return visited;
+}
+
+function analyzeProgress() {
+  const startVal  = document.getElementById('start-date').value;
+  const targetVal = document.getElementById('target-date').value;
+  const output    = document.getElementById('ai-output');
+
+  if (!startVal || !targetVal) {
+    output.textContent = '请选择预立项启动日和预计上线日期，AI 将自动生成洞察建议';
+    return;
+  }
+
+  const startDate  = new Date(startVal);
+  const targetDate = new Date(targetVal);
+  const today      = new Date();
+  const totalDays  = Math.ceil((targetDate - startDate) / (1000*60*60*24));
+  const elapsed    = Math.ceil((today - startDate) / (1000*60*60*24));
+  const daysLeft   = Math.ceil((targetDate - today) / (1000*60*60*24));
+
+  const done    = ALL_IDS.filter(id => getStatus(id)==='done').length;
+  const prog    = ALL_IDS.filter(id => getStatus(id)==='progress').length;
+  const blocked = ALL_IDS.filter(id => getStatus(id)==='blocked').length;
+  const pending = ALL_IDS.length - done - prog - blocked;
+
+  // 各阶段截止日 & 完成情况
+  let phaseDeadlines = {};
+  let cumRatio = 0;
+  for (const [ph, ratio] of Object.entries(PHASE_RATIO)) {
+    cumRatio += ratio;
+    phaseDeadlines[ph] = new Date(startDate.getTime() + totalDays * cumRatio * 86400000);
+  }
+
+  let phaseStatus = {};
+  for (const [ph, ids] of Object.entries(PHASE_IDS)) {
+    const pDone    = ids.filter(id => getStatus(id)==='done').length;
+    const pBlocked = ids.filter(id => getStatus(id)==='blocked').length;
+    const pProg    = ids.filter(id => getStatus(id)==='progress').length;
+    const deadline = phaseDeadlines[ph];
+    const overdue  = today > deadline && pDone < ids.length;
+    phaseStatus[ph] = { total:ids.length, done:pDone, blocked:pBlocked, progress:pProg, deadline, overdue };
+  }
+
+  // ═══ 总结判定 ═══
+  let verdict = '';
+  let verdictIcon = '';
+  const blockedIds = ALL_IDS.filter(id => getStatus(id)==='blocked');
+
+  if (done === ALL_IDS.length) {
+    verdict = '🎉 提前完成'; verdictIcon = '✅';
+  } else if (blocked > 0) {
+    const names = blockedIds.map(id => {
+      const el = document.getElementById('bar-'+id);
+      return el ? el.textContent.replace(/待启动|进行中|已完成|已阻塞/g,'').trim().split('\n')[0] : id;
+    });
+    verdict = `🚨 ${names.join('、')} 阻塞中`; verdictIcon = '🚨';
+  } else if (Object.values(phaseStatus).some(p => p.overdue)) {
+    verdict = '⚠️ 阶段延期风险'; verdictIcon = '⚠️';
+  } else {
+    verdict = '✅ 正常推进'; verdictIcon = '✅';
+  }
+
+  let lines = [];
+  lines.push(`━━━━━━━━━━ ${verdict} ━━━━━━━━━━`);
+  lines.push('');
+  lines.push(`📅 项目周期：${startVal} → ${targetVal}（共 ${totalDays} 天，已过 ${elapsed} 天，剩余 ${daysLeft} 天）`);
+  lines.push(`📊 整体进度：${done}/${ALL_IDS.length} 完成 | ${prog} 进行中 | ${blocked} 阻塞 | ${pending} 待启动`);
+  lines.push('');
+
+  // 各阶段分析
+  lines.push('┈┈┈┈ 分阶段分析 ┈┈┈┈');
+  for (const [ph, info] of Object.entries(phaseStatus)) {
+    const dl = info.deadline.toLocaleDateString('zh-CN');
+    const statusTag = info.done === info.total ? '✅ 已完成'
+      : info.blocked > 0 ? '🚨 有阻塞'
+      : info.overdue ? '⚠️ 超期'
+      : info.progress > 0 ? '🔄 进行中' : '⏳ 未开始';
+    lines.push(`  ${PHASE_NAMES[ph]}（截止 ${dl}）: ${info.done}/${info.total} 完成 ${statusTag}`);
+  }
+  lines.push('');
+
+  // 阻塞影响分析
+  if (blocked > 0) {
+    lines.push('┈┈┈┈ 阻塞影响分析 ┈┈┈┈');
+    blockedIds.forEach(id => {
+      const el = document.getElementById('bar-'+id);
+      const name = el ? el.textContent.replace(/待启动|进行中|已完成|已阻塞/g,'').trim().split('\n')[0] : id;
+      const downstream = getAllDownstream(id);
+      downstream.delete(id);
+      if (downstream.size > 0) {
+        const affectedNames = [...downstream].map(did => {
+          const del = document.getElementById('bar-'+did);
+          return del ? del.textContent.replace(/待启动|进行中|已完成|已阻塞/g,'').trim().split('\n')[0] : did;
+        });
+        lines.push(`  🔴 「${name}」阻塞 → 影响下游 ${downstream.size} 项任务：`);
+        affectedNames.forEach(n => lines.push(`      · ${n}`));
+      } else {
+        lines.push(`  🔴 「${name}」阻塞（无直接下游影响）`);
+      }
+    });
+    lines.push('');
+    lines.push('💡 建议：优先解除阻塞项，否则将推迟整体上线时间');
+  }
+
+  // 进度建议
+  if (done < ALL_IDS.length && daysLeft > 0 && blocked === 0) {
+    const remaining = ALL_IDS.length - done;
+    const pace = (remaining / daysLeft).toFixed(1);
+    lines.push('┈┈┈┈ 推进建议 ┈┈┈┈');
+    lines.push(`  剩余 ${remaining} 项需在 ${daysLeft} 天内完成，节奏 ≈ ${pace} 项/天`);
+    if (pace > 2) lines.push('  ⚠️ 节奏紧张，建议并行推进或协调更多资源');
+    else if (pace > 1) lines.push('  💡 节奏适中，保持当前速度');
+    else lines.push('  👍 时间充裕，稳步推进即可');
+  } else if (daysLeft <= 0 && done < ALL_IDS.length) {
+    lines.push('┈┈┈┈ 推进建议 ┈┈┈┈');
+    lines.push('  ⛔ 已超过目标上线日期，建议立即评估延期方案或缩减范围');
+  }
+
+  output.textContent = lines.join('\n');
+}
+</script>
+</body>
+</html>

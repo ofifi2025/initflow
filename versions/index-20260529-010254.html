@@ -260,18 +260,19 @@
     /* ── Root anchor label — unified badge + tail triangle ── */
     .ai-cp-root-anchor {
       position:absolute;
-      bottom:calc(100% + 7px);
+      /* badge bottom sits 8px above pill; ::after tip = 8px − 6px = 2px above pill */
+      bottom:calc(100% + 8px);
       left:50%; transform:translateX(-50%);
       background:#cf1322; color:#fff; font-size:9px; font-weight:700;
       padding:3px 9px; border-radius:5px; white-space:nowrap; letter-spacing:.5px;
       z-index:20; pointer-events:none;
       animation:pulse-root-badge 2s ease-in-out infinite;
     }
-    /* Tail triangle — tip 2px above pill */
+    /* Tail triangle — attached to badge bottom, centred, tip 2px above pill */
     .ai-cp-root-anchor::after {
       content:''; position:absolute;
       top:100%; left:50%; transform:translateX(-50%);
-      border:5px solid transparent; border-top-color:#cf1322;
+      border:6px solid transparent; border-top-color:#cf1322;
     }
     @keyframes pulse-root-badge {
       0%,100% { opacity:1; box-shadow:0 0 0 0 rgba(207,19,34,.4); }
@@ -284,11 +285,9 @@
     .ai-cp-node.clickable { cursor:pointer; z-index:2; } /* 根因节点置顶，呼吸阴影 + 标签不被遮 */
     .ai-cp-pill { font-size:10px; font-weight:600; padding:5px 12px; border-radius:20px; white-space:nowrap; border:none; transition:transform .15s, box-shadow .15s; }
     .ai-cp-node:hover .ai-cp-pill { transform:translateY(-1px); }
-    /* T3: 去掉饱和色背景，非卡点节点统一极浅灰 */
-    .ai-cp-pill.done    { background:#f8fafc; color:#64748b; border:1px dashed #cbd5e1; }
-    .ai-cp-pill.press   { background:#f8fafc; color:#475569; border:1px solid #cbd5e1; }
-    /* T1: 待启动 → 灰色实心胶囊 */
-    .ai-cp-pill.pending { background:#f5f5f5; color:#94a3b8; border:1px dashed #d1d5da; }
+    .ai-cp-pill.done    { background:#ecfdf5; color:#065f46; }
+    .ai-cp-pill.press   { background:#eff6ff; color:#1e40af; }
+    .ai-cp-pill.pending { background:transparent; color:#94a3b8; border:1px solid #e2e8f0; }
     .ai-cp-pill.root    { background:#fff0f0; color:#cf1322; border:3px solid #cf1322; padding:6px 14px; animation:pulse-root 2s ease-in-out infinite; }
     @keyframes pulse-root {
       0%,100% { box-shadow:0 0 0 2px rgba(207,19,34,.35), 0 0 4px 1px rgba(207,19,34,.15); }
@@ -311,8 +310,7 @@
       0%,100% { box-shadow:0 0 0 2px rgba(217,119,6,.3), 0 2px 4px rgba(0,0,0,.05); }
       50%      { box-shadow:0 0 0 10px rgba(217,119,6,.1), 0 0 20px 5px rgba(217,119,6,.15); }
     }
-    /* T2: 强制锁定 days 文字颜色 */
-    .ai-cp-days { font-size:9px; color:#94a3b8 !important; font-family:'SF Mono',SFMono-Regular,Menlo,monospace; }
+    .ai-cp-days { font-size:9px; color:#94a3b8; font-family:'SF Mono',SFMono-Regular,Menlo,monospace; }
     .ai-cp-arrow { color:#cbd5e1; margin:0 12px; align-self:center; display:flex; flex-shrink:0; padding-bottom:14px; }
     .ai-cp-arrow svg { width:24px; height:12px; }
     /* 确保 hover 时根因徽章仍然可见（始终处于最上层） */
@@ -320,20 +318,20 @@
     /* ── Secondary path (次重点路径) ── */
     /* 与 .ai-section 同级，左边缘对齐；大屏额外留白 */
     .ai-sec-section { margin-top:32px; padding-top:16px; border-top:1px dashed #e9edf2; margin-bottom:32px; }
-    /* Inline action row — left-aligned with title (cancel parent 45px indent) */
+    /* Inline action row — embedded under each path flow, aligned with 40px flow indent */
     .cp-action-row {
       display:flex; gap:12px; align-items:center;
-      margin-top:24px; margin-left:-45px;
+      margin-top:14px;
     }
     /* 字号与关键路径标题统一 */
     .ai-sec-header { font-size:14px; font-weight:700; color:#1e293b; margin-bottom:10px; display:flex; align-items:baseline; gap:6px; }
     .ai-sec-sub { font-size:11px; font-weight:400; color:#94a3b8; }
     .ai-sec-diverg-note { font-size:10px; color:#d97706; font-weight:600; margin-bottom:10px; letter-spacing:.2px; }
     .ai-cp-sec-flow { display:flex; align-items:flex-start; gap:0; flex-wrap:wrap; row-gap:10px; padding:4px 0; margin-top:42px; }
-    /* 次重点路径：统一 1px dashed #cbd5e1，去饱和背景 */
-    .ai-cp-pill.sec-done    { background:#f8fafc; color:#94a3b8; border:1px dashed #cbd5e1; }
-    .ai-cp-pill.sec-press   { background:#f8fafc; color:#475569; border:1px dashed #cbd5e1; }
-    .ai-cp-pill.sec-pending { background:#f5f5f5; color:#94a3b8; border:1px dashed #d1d5da; }
+    /* 次重点路径：1px 半透明琥珀虚线，轻于主路径实线 */
+    .ai-cp-pill.sec-done    { background:#f8fafc; color:#94a3b8; border:1px dashed #d1d5db; }
+    .ai-cp-pill.sec-press   { background:#faf5ec; color:#a06830; border:1px dashed rgba(217,119,6,0.45); }
+    .ai-cp-pill.sec-pending { background:transparent; color:#94a3b8; border:1px dashed #d1d5db; }
     /* 灰色虚线箭头 */
     .ai-cp-arrow-sec { color:#c8cdd5; margin:0 12px; align-self:center; display:flex; flex-shrink:0; padding-bottom:14px; }
     /* ── CTA Action card — minimal feed style ── */
@@ -432,22 +430,24 @@
     .feishu-modal-confirm { background:#3370FF; color:#fff; }
 
     /* ── Two-column path layout ── */
-    /* Outer block: title + split row; controls spacing between two path modules */
-    .ai-path-block { margin-bottom:32px; }
-    .ai-path-block:last-child { margin-bottom:0; }
-    /* Section header spanning full width */
-    .ai-path-header {
-      font-size:17px; font-weight:700; color:#1e293b;
-      display:flex; align-items:baseline; gap:6px;
-      text-align:left;
-      margin-bottom:12px;
-      position:relative;
-    }
-    .ai-path-header-sub {
-      font-size:11px; font-weight:400; color:#94a3b8;
-    }
     .ai-path-row {
-      display:flex; align-items:flex-start; gap:0; padding-left:45px;
+      display:flex; align-items:flex-start; gap:0; margin-bottom:28px;
+    }
+    .ai-path-row:last-child { margin-bottom:0; }
+    .ai-path-status-col {
+      flex:0 0 108px; padding-right:16px; padding-top:44px;
+      display:flex; flex-direction:column; gap:5px;
+    }
+    .ai-path-status-name {
+      font-size:11px; font-weight:700; line-height:1.35;
+      word-break:keep-all;
+    }
+    .ai-path-status-badge {
+      font-size:10px; font-weight:500; line-height:1.4;
+    }
+    .ai-path-vdivider {
+      flex:0 0 1px; background:#edf0f4; align-self:stretch;
+      margin-right:20px; border-radius:1px;
     }
     .ai-path-content-col {
       flex:1; min-width:0;
@@ -1282,9 +1282,19 @@ function analyzeProgress() {
 
   // ═══ 3. CRITICAL PATH FLOW — 横向流程图（含根因锚点）═══
   var isAlert = rootCause && (bannerClass === 'red' || bannerClass === 'orange');
-  var cpHtml = '<div class="ai-path-block">'
-    + '<div class="ai-path-header">🔗 关键路径<span class="ai-path-header-sub">(决定最短工期)</span></div>'
-    + '<div class="ai-path-row">'
+  var cpStatusName = rootCause
+    ? getTaskName(rootCause).replace(/【.*?】/,'').replace(/「|」/g,'').trim()
+    : '全部完成';
+  var cpStatusColor = rootCause
+    ? (bannerClass === 'red' ? '#cf1322' : (bannerClass === 'orange' ? '#d97706' : '#64748b'))
+    : '#10b981';
+  var cpStatusBadge = rootCause ? '❌ 未完成' : '✅ 完成';
+  var cpHtml = '<div class="ai-path-row">'
+    + '<div class="ai-path-status-col">'
+    + '<div class="ai-path-status-name" style="color:' + cpStatusColor + ';">' + cpStatusName + '</div>'
+    + '<div class="ai-path-status-badge" style="color:' + cpStatusColor + ';">' + cpStatusBadge + '</div>'
+    + '</div>'
+    + '<div class="ai-path-vdivider"></div>'
     + '<div class="ai-path-content-col">';
   cpHtml += '<div class="ai-cp-flow">';
   criticalPath.forEach(function(id, i) {
@@ -1336,7 +1346,6 @@ function analyzeProgress() {
   }
   cpHtml += '</div>'; // close ai-path-content-col
   cpHtml += '</div>'; // close ai-path-row
-  cpHtml += '</div>'; // close ai-path-block
 
   // ═══ 3b. SECONDARY PATH ═══
   var secHtml = '';
@@ -1363,9 +1372,17 @@ function analyzeProgress() {
         if (getStatus(displayPath[_si]) !== 'done') { secFirstUndone = displayPath[_si]; break; }
       }
       secBottleneck = secFirstUndone; // expose for Gantt sync
-      secHtml = '<div class="ai-path-block">'
-        + '<div class="ai-path-header">⛓️ 次重点路径<span class="ai-path-header-sub">(并行风险链)</span></div>'
-        + '<div class="ai-path-row">'
+      var secStatusName = secFirstUndone
+        ? getTaskName(secFirstUndone).replace(/【.*?】/,'').replace(/「|」/g,'').trim()
+        : '无风险';
+      var secStatusColor = secFirstUndone ? '#d97706' : '#10b981';
+      var secStatusBadge = secFirstUndone ? '❌ 未完成' : '✅ 完成';
+      secHtml = '<div class="ai-path-row">'
+        + '<div class="ai-path-status-col">'
+        + '<div class="ai-path-status-name" style="color:' + secStatusColor + ';">' + secStatusName + '</div>'
+        + '<div class="ai-path-status-badge" style="color:' + secStatusColor + ';">' + secStatusBadge + '</div>'
+        + '</div>'
+        + '<div class="ai-path-vdivider"></div>'
         + '<div class="ai-path-content-col">';
       secHtml += '<div class="ai-cp-sec-flow">';
       displayPath.forEach(function(id, i) {
@@ -1425,7 +1442,6 @@ function analyzeProgress() {
       }
       secHtml += '</div>'; // close ai-path-content-col
       secHtml += '</div>'; // close ai-path-row
-      secHtml += '</div>'; // close ai-path-block
     }
   }
 

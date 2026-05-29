@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  aPaaS 版本 — 预立项｜资源配置进度甘特图                                      ║
+║  说明：本文件不含 <script> 标签，所有交互逻辑以 data-* 属性和注释形式提供        ║
+║  事件绑定：通过 data-click-target="btn-{id}" 属性，由 aPaaS 平台事件系统驱动    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+═══════════════════════════════════════════════════════════════════════════════
+  一、任务 ID 列表（共 16 项）
+═══════════════════════════════════════════════════════════════════════════════
+  biz      — 【确认】官网域名
+  s1       — 【确认】运营主体
+  s2       — 【确认】采购付款主体
+  rcv1     — 【确认】用户支付渠道
+  rcv2     — 【注册】收款账户（长周期）
+  cloud    — 【注册】云账号 - 运营账号
+  cloudp   — 【注册】云账号 - 生产账号
+  email    — 【注册】项目邮箱/手机号
+  repo     — 【创建】项目 GitLab 仓库
+  domain   — 【购买】域名 + SSL 证书
+  icp      — 【备案】域名（国内网站需要）
+  env      — 【确认】测试账号
+  srv2     — 【切换】正式环境部署
+  depa     — 【部署】生态中心私有化
+  depb     — 【部署】代理服务
+  depc     — 【部署】LLM AI 网关
+
+═══════════════════════════════════════════════════════════════════════════════
+  二、状态循环规则（点击 data-click-target 触发）
+═══════════════════════════════════════════════════════════════════════════════
+  状态流转：pending → progress → done → pending（循环）
+
+  每个状态对应的样式变更：
+  ┌──────────┬───────────────────────────────ng  │ bar 添加 class="st-pending"                                 │
+  │          │ pill 设为 class="spill sp-pending"，文本="待             │
+  │          │ crit 徽标：文本="!" 背景=#ef4444 阴影=rgba(239,68,68,.4)     │
+  ├──────────┼─────────────────────────────────────────────────────────────┤
+  │ progress │ bar 添加 class="st-progress"                                │
+  │          │ pill 设为 class="spill sp-progress"，文本="进行中"            │
+  │          │ crit 徽标：文本="!" 背景=#ef4444 阴影=rgba(239,68,68,.4)     │
+  ├──────────┼─────────────────────────────────────────────────────────────┤
+  │ done     │ bar 添加 class="st-done"                                    │
+  │          │ pill 设为 clpill sp-done"，文本="已完成"                │
+  │          │ crit 徽标：文本="✓" 背景=#10b981 阴影=rgba(16,185,129,.4)    │
+  └──────────┴─────────────────────────────────────────────────────────────┘
+
+  注意：切换状态时需先移除旧 class（st-pending/st-progress/st-done），再添加新 class
+
+═══════════════════════════════════════════════════════════════════════════════
+  三、部门归属映射
+═══════════════════════════════════════════════════════════════════════════════
+  业务方   → biz
+  财务     → s1, s2, rcv1, rcv2
+  采购     → cloud, cloudp
+  行政/IT  → email
+  PMO      → repo, domain, icp
+  运维     → env, srv2
+  生态中心 → depa
+  云资源   → depb, depc
+
+═══════════════════════════════════════════════════════════════════════════════
+  四、关键任务（带 crit 徽标）
+═══════════════════════════════════════════════════════════════════════════════
+  biz, s1, email, srv2
+
+═══════════════════════════════════════════════════════════════════════════════
+  五、依赖连线关系（DEPS）
+═══════════════════════════════════════════════════════════════════════════════
+  路由模式说明：
+  - standard（默认）：从源右侧出发 → 水平到中间竖线 → 垂直折 → 水平进入目标左侧
+  - right-right：从源右侧出发 → 向右绕行 → 垂直折 → 从目标右侧反向进入
+  - left-left：从源左侧出发 → 向左绕行 → 垂直折 → 从目标左侧进入
+  - direct：源右侧中心 → 目标左侧中心，直线连接（无折线）
+
+  依赖列表：
+  ┌────────────────┬────────────────┬─────────┬─────────────┐
+  │ 源 (from)      │ 目标 (to)      │ 颜色    │ 路由模式    │
+  ├────────────────┼────────────────┼─────────┼─────────────┤
+  │ biz            │ rcv2           │ #0891b2 │ standard    │
+  │ biz            │ domain         │ #0891b2 │ standard    │
+  │ biz            │ icp            │ #0891b2 │ standard    │
+  │ s1             │ cloud          │ #f97316 │ standard    │
+  │ s1             │ cloudp         │ #f97316 │ standard    │
+  │ s1             │ domain         │ #f97316 │ standard    │
+  │ s2             │ cloud          │ #f97316 │ standard    │
+  │ s2             │ cloudp         │ #f97316 │ standard    │
+  │ rcv1           │ rcv2           │ #0891b2 │ direct      │
+  │ rcv2           │ depa           │ #f97316 │ right-right │
+  │ cloud          │ srv2           │ #6366f1 │ standard    │
+  │ cloud          │ depa           │ #6366f1 │ standard    │
+  │ cloudp         │ depb           │ #9333ea │ standard    │
+  │ cloudp         │ depc           │ #9333ea │ standard    │
+  │ domain         │ srv2           │ #14b8a6 │ right-right │
+  │ icp            │ srv2           │ #14b8a6 │ right-right │
+  │ env            │ srv2           │ #64748b │ direct      │
+  │ email          │ rcv2           │ #8b5cf6 │ left-left   │
+  │ email          │ domain         │ #8b5cf6 │ left-left   │
+  └────────────────┴────────────────┴─────────┴─────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+  六、进度计算规则
+═══════════════════════════════════════════════════════════════════════════════
+  整体进度 = done数量 / 16 × 100%
+  进度条宽度 = 百分比值
+  统计芯片：待启动 = 16 - done - progress，进行中 = progress，已完成 = done
+
+═══════════════════════════════════════════════════════════════════════════════
+  七、部门状态芯片规则
+═══════════════════════════════════════════════════════════════════════════════
+  遍历每个部门下的任务：
+  - 有任务 progress → class="dept-chip dc-active"，显示 "N 项进行中"
+  - 全部 done       → class="dept-chip dc-done"，显示 "✓ 全部完成"
+  - 其他            → class="dept-chip dc-ok"，显示 "N/M 完成"
+
+═══════════════════════════════════════════════════════════════════════════════
+  八、连线绘制算法（如需自定义组件实现）
+═══════════════════════════════════════════════════════════════════════════════
+  SVG 覆盖层：position:absolute, top:0, left:0, 100%宽高, pointer-events:none
+  箭头 marker：<marker id="arr-r" markerWidth="5" markerHeight="4" refX="4.5"
+               refY="2" orient="auto"><polygon points="0 0,5 2,0 4"
+               fill="context-stroke"/></marker>
+
+  路径生成：
+  - standard: M{源.right} {源.cy} H{gutter} V{目标.cy} H{目标.left}
+  - right-right: M{源.right} {源.cy} H{max(源.right,目标.right)+15} V{目标.cy} H{目标.right}
+  - left-left: M{源.left} {源.cy} H{min(源.left,目标.left)-15} V{目标.cy} H{目标.left}
+  - direct: M{源.right} {源.cy} L{目标.left} {目标.cy}
+
+  交互：默认 opacity:0，悬停任务框时显示相关依赖链（上下游递归）opacity:1
+-->
+<html lang="zh">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>预立项｜资源配置进度甘特图</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #f8fafc; color: #1e293b;
+      padding: 16px 16px 40px; font-size: 13px;
+    }
+
+    h1 { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+    .subtitle { font-size: 11px; color: #94a3b8; margin-bottom: 12px; }
+
+    .prog-card { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:11px 14px; margin-bottom:10px; }
+    .prog-top  { display:flex; justify-content:space-between; align-items:center; margin-bottom:7px; }
+    .prog-label { font-size:11px; color:#64748b; font-weight:600; }
+    .prog-count { font-size:12px; font-weight:700; color:#1e293b; }
+    .prog-bar-bg { height:6px; background:#e2e8f0; border-radius:3px; overflow:hidden; }
+    .prog-bar-fill { height:100%; background:linear-gradient(90deg,#6366f1,#10b981); border-radius:3px; transition:width .3s ease; }
+    .stat-row { display:flex; gap:10px; margin-top:9px; flex-wrap:wrap; }
+    .stat-chip { display:flex; align-items:center; gap:4px; font-size:10px; color:#64748b; background:#f8fafc; border:1px solid #e2e8f0; border-radius:5px; padding:2px 7px; }
+    .stat-dot  { width:7px; height:7px; border-radius:50%; }
+
+    .dept-strip { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; margin-bottom:10px; }
+    .dept-strip-label { font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
+    .dept-chips { display:flex; gap:8px; flex-wrap:wrap; }
+    .dept-chip { display:flex; align-items:center; gap:6px; border-radius:6px; padding:5px 11px; font-size:11px; font-weight:600; border:1px solid; }
+    .dept-chip-stat { font-size:10px; font-weight:400; opacity:.8; }
+    .dc-ok      { background:#f8fafc; color:#64748b;  border-color:#e2e8f0; }
+    .dc-active  { background:#eff6ff; color:#1d4ed8;  border-color:#bfdbfe; }
+    .dc-blocked { background:#fff1f2; color:#be123c;  border-color:#fecdd3; }
+    .dc-done    { background:#f0fdf4; color:#15803d;  border-color:#bbf7d0; }
+
+    .gantt-scroll { overflow-x:auto; width:100%; }
+    .gantt-outer {
+      width: 100%;
+      min-width: 750px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #dep-svg {
+      position:absolute; top:0; left:0;
+      width:100%; height:100%;
+      pointer-events:none; overflow:visible; z-index:5;
+    }
+
+    /* Grid: dept | Phase1 | Phase2 | Phase3 */
+    .g-grid {
+      display: grid;
+      grid-template-columns: 65px 1fr 1fr 1fr;
+    }
+
+    .gh-cell {
+      padding: 12px 12px 10px; text-align: center;
+      border-right: 1px solid #e2e8f0;
+      border-bottom: 2px solid #e2e8f0;
+      background: #fafbfc;
+      position: relative;
+    }
+    .gh-cell::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 4px; border-radius: 0 0 2px 2px;
+    }
+    .gh-cell.gh-ph1::before { background: #f97316; }
+    .gh-cell.gh-ph2::before { background: #10b981; }
+    .gh-cell.gh-ph3::before { background: #6366f1; }
+    .gh-cell:first-child  { border-right: 2px solid #e2e8f0; background: #f1f5f9; }
+    .gh-cell:first-child::before { display: none; }
+    .gh-cell:last-child   { border-right: none; }
+    /* Step arrow between headers */
+    .gh-cell.gh-ph1::after, .gh-cell.gh-ph2::after {
+      content: '›'; position: absolute; right: -7px; top: 50%; transform: translateY(-50%);
+      font-size: 18px; font-weight: 300; color: #94a3b8; z-index: 2;
+    }
+    .gh-num   { font-size:8px; font-weight:600; text-transform:uppercase; letter-spacing:.8px; color:#b0b8c4; margin-bottom:4px; }
+    .gh-name  { font-size:13px; font-weight:800; color:#1e293b; letter-spacing:.2px; }
+    .gh-badge { display:inline-block; font-size:9px; font-weight:600; padding:2px 7px; border-radius:10px; margin-top:5px; }
+    .b-day1 { background:#fff0e6; color:#b45309; }
+    .b-ph1  { background:#d1fae5; color:#065f46; }
+    .b-ph2  { background:#ede9fe; color:#5b21b6; }
+
+    .dl {
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 4px;
+      font-size: 10px; font-weight: 700; letter-spacing: .3px;
+      padding: 10px 4px; text-align: center;
+      background: #f1f5f9;
+      color: #4b5563;
+      border-right: 2px solid #e2e8f0;
+      box-shadow: inset -3px 0 6px rgba(0,0,0,.04);
+    }
+    .dl-icon { font-size: 15px; line-height: 1; }
+    /* Department color groups */
+    .dl-biz    { background:#fff7ed!important; border-right-color:#fed7aa!important; }
+    .dl-fin    { background:#faf5ff!important; border-right-color:#e9d5ff!important; }
+    .dl-pmo    { background:#f0fdf4!important; border-right-color:#bbf7d0!important; }
+    .dl-infra  { background:#f0f9ff!important; border-right-color:#bae6fd!important; }
+    .ds { border-top: 1px solid #e2e8f0; }
+
+    .pc {
+      position: relative;
+      padding: 10px 0;              /* no horizontal padding — bar's own 12px margin governs */
+      border-right: 1px solid #e2e8f0;
+      border-bottom: 1px solid #f1f5f9;
+      min-height: 78px;
+      display: flex; align-items: center;
+    }
+    .pc.lc { border-right: none; }
+
+    /* Fixed 10px side margin regardless of column span → edges always align */
+    .bar { position:relative; width:calc(100% - 30px); margin:0 auto; padding:10px 16px; min-height:60px; display:flex; flex-direction:column; justify-content:center; border-radius:11px; font-size:10px; font-weight:600; line-height:1.55; cursor:pointer; transition:filter .15s, box-shadow .15s, transform .12s; user-select:none; box-shadow:0 2px 4px rgba(0,0,0,.05); }
+    .bar:hover { filter:brightness(.97); box-shadow:0 3px 10px rgba(0,0,0,.10); transform:translateY(-1px); }
+
+    /* Phase-based colors — muted Morandi palette */
+    .bar-ph1      { background:#fef6ee; color:#92400e; border:1px solid #fcd9aa; }
+    .bar-ph1-dash { background:#fef6ee; color:#92400e; border:1px dashed #fde8c8; }
+    .bar-ph2      { background:#f0fdf4; color:#166534; border:1px solid #86efac; }
+    .bar-ph2-dash { background:#f0fdf4; color:#166534; border:1px dashed #bbf7d0; }
+    .bar-ph3      { background:#eff6ff; color:#1e3a8a; border:1px solid #bfdbfe; }
+
+    .bar.st-pending  { background:#fef6ee!important; border-color:#fcd9aa!important; color:#92400e!important; font-weight:400!important; box-shadow:none!important; }
+    .bar.st-progress { background:#ecfdf5!important; border:1.5px solid #34d399!important; color:#065f46!important; font-weight:700!important; animation:pulse-progress 2.2s ease-in-out infinite; }
+    .bar.st-done     { background:rgba(148,163,184,.12)!important; border:1.5px solid rgba(148,163,184,.25)!important; color:#94a3b8!important; font-weight:400!important; opacity:1; box-shadow:none!important; }
+    @keyframes pulse-progress {
+      0%,100% { box-shadow:0 0 0 2px rgba(52,211,153,.3), 0 2px 4px rgba(0,0,0,.05); }
+      50%      { box-shadow:0 0 0 5px rgba(52,211,153,.10), 0 2px 4px rgba(0,0,0,.05); }
+    }
+
+    .spill { display:inline-block; font-size:8px; font-weight:600; padding:1px 6px; border-radius:8px; margin-top:4px; letter-spacing:.2px; }
+    .sp-pending  { background:#fde8c8; color:#92400e; }
+    .sp-progress { background:#a7f3d0; color:#065f46; }
+    .sp-done     { background:rgba(148,163,184,.18); color:#94a3b8; }
+
+    .crit, .flag-icon {
+      position: absolute;
+      top: -6px; right: -6px;
+      font-size: 10px; line-height: 1;
+      background: #ef4444; color: #fff;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; letter-spacing: 0;
+      box-shadow: 0 1px 3px rgba(239,68,68,.4);
+      pointer-events: none; z-index: 10;
+    }
+
+    /* dep-arrow styles set via JS inline styles for hover transition */
+  </style>
+</head>
+<body>
+
+<h1>预立项｜资源配置进度甘特图</h1>
+<p class="subtitle">点击任务条切换状态 · 箭头表示依赖关系 · 进度由 aPaaS 事件驱动</p>
+
+<div class="prog-card">
+  <div class="prog-top">
+    <span class="prog-label">整体进度</span>
+    <span class="prog-count" id="prog-count">0 / 16 已完成</span>
+  </div>
+  <div class="prog-bar-bg"><div class="prog-bar-fill" id="prog-fill" style="width:0%"></div></div>
+  <div class="stat-row">
+    <div class="stat-chip"><div class="stat-dot" style="background:#94a3b8"></div><span id="c-pending">16</span> 待启动</div>
+    <div class="stat-chip"><div class="stat-dot" style="background:#6366f1"></div><span id="c-progress">0</span> 进行中</div>
+    <div class="stat-chip"><div class="stat-dot" style="background:#10b981"></div><span id="c-done">0</span> 已完成</div>
+  </div>
+</div>
+
+<div class="dept-strip">
+  <div class="dept-strip-label">部门状态</div>
+  <div class="dept-chips" id="dept-chips">
+    <div class="dept-chip dc-ok"><span>业务方</span><span class="dept-chip-stat">0/1 完成</span></div>
+    <div class="dept-chip dc-ok"><span>财务</span><span class="dept-chip-stat">0/4 完成</span></div>
+    <div class="dept-chip dc-ok"><span>采购</span><span class="dept-chip-stat">0/2 完成</span></div>
+    <div class="dept-chip dc-ok"><span>行政/IT</span><span class="dept-chip-stat">0/1 完成</span></div>
+    <div class="dept-chip dc-ok"><span>PMO</span><span class="dept-chip-stat">0/3 完成</span></div>
+    <div class="dept-chip dc-ok"><span>运维</span><span class="dept-chip-stat">0/2 完成</span></div>
+    <div class="dept-chip dc-ok"><span>生态中心</span><span class="dept-chip-stat">0/1 完成</span></div>
+    <div class="dept-chip dc-ok"><span>云资源</span><span class="dept-chip-stat">0/2 完成</span></div>
+  </div>
+</div>
+
+<div class="gantt-scroll">
+<div id="gantt-wrap" style="position:relative;min-width:750px;width:100%">
+<div class="gantt-outer" id="gantt-outer">
+  <div class="g-grid">
+
+    <!-- Header -->
+    <div class="gh-cell" style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;justify-content:center;">部门</div>
+    <div class="gh-cell gh-ph1">
+      <div class="gh-num">Phase 1</div>
+      <div class="gh-name">信息确认</div>
+      <span class="gh-badge b-day1">⏱ 3日内完成</span>
+    </div>
+    <div class="gh-cell gh-ph2">
+      <div class="gh-num">Phase 2</div>
+      <div class="gh-name">基建和凭证采购</div>
+      <span class="gh-badge b-ph1">⏱ 1周内完成</span>
+    </div>
+    <div class="gh-cell gh-ph3">
+      <div class="gh-num">Phase 3</div>
+      <div class="gh-name">部署建设</div>
+      <span class="gh-badge b-ph2">📅 根据预计上线日期倒推</span>
+    </div>
+
+    <!-- ══ 业务方 · 1 row ══ -->
+    <div class="dl dl-biz" id="dl-biz"><span class="dl-icon">🏢</span>业务方</div>
+    <div class="pc"><div class="bar bar-ph1 st-pending" id="bar-biz" data-click-target="btn-biz" data-status="pending" data-dept="业务方" data-critical="true" data-deps-to="rcv2,domain,icp"><span class="crit">!</span>【确认】官网域名<br/><span class="spill sp-pending" id="pill-biz">待启动</span></div></div>
+    <div class="pc"></div>
+    <div class="pc lc"></div>
+
+    <!-- ══ 财务 · 3 rows ══ -->
+    <div class="dl ds dl-fin" id="dl-caiwu" style="grid-row:span 3"><span class="dl-icon">💰</span>财务</div>
+    <!-- 运营主体 -->
+    <div class="pc ds"><div class="bar bar-ph1 st-pending" id="bar-s1" data-click-target="btn-s1" data-status="pending" data-dept="财务" data-critical="true" data-deps-to="cloud,cloudp,domain"><span class="crit">!</span>【确认】运营主体<br/><span class="spill sp-pending" id="pill-s1">待启动</span></div></div>
+    <div class="pc ds"></div><div class="pc ds lc"></div>
+    <!-- 付款主体 -->
+    <div class="pc"><div class="bar bar-ph1 st-pending" id="bar-s2" data-click-target="btn-s2" data-status="pending" data-dept="财务" data-deps-to="cloud,cloudp">【确认】采购付款主体<br/><span class="spill sp-pending" id="pill-s2">待启动</span></div></div>
+    <div class="pc"></div><div class="pc lc"></div>
+    <!-- 收款账户：Phase1 确认渠道 + Phase2-3 注册账户（长周期） -->
+    <div class="pc"><div class="bar bar-ph1 st-pending" id="bar-rcv1" data-click-target="btn-rcv1" data-status="pending" data-dept="财务" data-deps-to="rcv2">【确认】用户支付渠道<br/><span class="spill sp-pending" id="pill-rcv1">待启动</span></div></div>
+    <div class="pc lc" style="grid-column:span 2;"><div class="bar bar-ph2-dash st-pending" id="bar-rcv2" data-click-target="btn-rcv2" data-status="pending" data-dept="财务" data-deps-from="biz,rcv1,email" data-deps-to="depa" style="width:calc(100% - 75px);margin-left:30px;margin-right:45px;">【注册】收款账户（长周期）<br/><span class="spill sp-pending" id="pill-rcv2">待启动</span></div></div>
+
+    <!-- ══ 采购 · 2 rows ══ -->
+    <div class="dl ds dl-fin" id="dl-caigou" style="grid-row:span 2"><span class="dl-icon">🛒</span>采购</div>
+    <!-- 运营账号 -->
+    <div class="pc ds"></div>
+    <div class="pc ds"><div class="bar bar-ph2 st-pending" id="bar-cloud" data-click-target="btn-cloud" data-status="pending" data-dept="采购" data-deps-from="s1,s2" data-deps-to="srv2,depa">【注册】云账号 - 运营账号<br/><span class="spill sp-pending" id="pill-cloud">待启动</span></div></div>
+    <div class="pc ds lc"></div>
+    <!-- 生产账号 -->
+    <div class="pc"></div>
+    <div class="pc"><div class="bar bar-ph2 st-pending" id="bar-cloudp" data-click-target="btn-cloudp" data-status="pending" data-dept="采购" data-deps-from="s1,s2" data-deps-to="depb,depc">【注册】云账号 - 生产账号<br/><span class="spill sp-pending" id="pill-cloudp">待启动</span></div></div>
+    <div class="pc lc"></div>
+
+    <!-- ══ 行政/IT · 1 row ══ -->
+    <div class="dl ds dl-pmo" id="dl-it"><span class="dl-icon">🖥️</span>行政/IT</div>
+    <div class="pc ds"></div>
+    <div class="pc ds"><div class="bar bar-ph2 st-pending" id="bar-email" data-click-target="btn-email" data-status="pending" data-dept="行政/IT" data-critical="true" data-deps-to="rcv2,domain"><span class="crit">!</span>【注册】项目邮箱/手机号<br/><span class="spill sp-pending" id="pill-email">待启动</span></div></div>
+    <div class="pc ds lc"></div>
+
+    <!-- ══ PMO · 2 rows ══ -->
+    <div class="dl ds dl-pmo" id="dl-pmo" style="grid-row:span 2"><span class="dl-icon">📊</span>PMO</div>
+    <div class="pc ds"><div class="bar bar-ph1 st-pending" id="bar-repo" data-click-target="btn-repo" data-status="pending" data-dept="PMO">【创建】项目 GitLab 仓库<br/><span class="spill sp-pending" id="pill-repo">待启动</span></div></div>
+    <div class="pc ds"><div class="bar bar-ph2 st-pending" id="bar-domain" data-click-target="btn-domain" data-status="pending" data-dept="PMO" data-deps-from="biz,s1,email" data-deps-to="srv2" style="width:calc(100% - 45px);margin-left:30px;margin-right:15px;">【购买】域名 + SSL 证书<br/><span class="spill sp-pending" id="pill-domain">待启动</span></div></div>
+    <div class="pc ds lc"></div>
+
+    <div class="pc"></div>
+    <div class="pc lc" style="grid-column:span 2;"><div class="bar bar-ph2-dash st-pending" id="bar-icp" data-click-target="btn-icp" data-status="pending" data-dept="PMO" data-deps-from="biz" data-deps-to="srv2" style="width:calc(100% - 75px);margin-left:30px;margin-right:45px;">【备案】域名（国内网站需要）<br/><span class="spill sp-pending" id="pill-icp">待启动</span></div></div>
+
+    <!-- ══ 运维 · 1 row ══ -->
+    <div class="dl ds dl-infra" id="dl-yunwei"><span class="dl-icon">🛠️</span>运维</div>
+    <div class="pc ds" style="grid-column:span 2"><div class="bar bar-ph1-dash st-pending" id="bar-env" data-click-target="btn-env" data-status="pending" data-dept="运维" data-deps-to="srv2">【确认】测试账号（用于① CI/CD 全链路就绪 ② 流量统一入口（路由+鉴权+SSL）③ 日志集中采集可检索 ④ 指标采集+基础告警覆盖 ⑤ 密钥与配置统一托管）<br/><span class="spill sp-pending" id="pill-env">待启动</span></div></div>
+    <div class="pc ds lc"><div class="bar bar-ph3 st-pending" id="bar-srv2" data-click-target="btn-srv2" data-status="pending" data-dept="运维" data-critical="true" data-deps-from="cloud,domain,icp,env"><span class="crit">!</span>【切换】正式环境部署<br/><span style="font-size:9px;opacity:.75;font-weight:400;">弹性扩容 · 自动化告警</span><br/><span class="spill sp-pending" id="pill-srv2">待启动</span></div></div>
+
+    <!-- ══ 生态中心 · 1 row ══ -->
+    <div class="dl ds dl-infra" id="dl-shengtai"><span class="dl-icon">🌐</span>生态中心</div>
+    <div class="pc ds"></div><div class="pc ds"></div>
+    <div class="pc ds lc"><div class="bar bar-ph3 st-pending" id="bar-depa" data-click-target="btn-depa" data-status="pending" data-dept="生态中心" data-deps-from="rcv2,cloud">【部署】生态中心私有化<br/><span class="spill sp-pending" id="pill-depa">待启动</span></div></div>
+
+    <!-- ══ 云资源 · 2 rows ══ -->
+    <div class="dl ds dl-infra" id="dl-yunziyuan" style="grid-row:span 2"><span class="dl-icon">☁️</span>云资源</div>
+    <div class="pc ds"></div><div class="pc ds"></div>
+    <div class="pc ds lc"><div class="bar bar-ph3 st-pending" id="bar-depb" data-click-target="btn-depb" data-status="pending" data-dept="云资源" data-deps-from="cloudp">【部署】代理服务<br/><span class="spill sp-pending" id="pill-depb">待启动</span></div></div>
+
+    <div class="pc"></div><div class="pc"></div>
+    <div class="pc lc"><div class="bar bar-ph3 st-pending" id="bar-depc" data-click-target="btn-depc" data-status="pending" data-dept="云资源" data-deps-from="cloudp">【部署】LLM AI 网关<br/><span class="spill sp-pending" id="pill-depc">待启动</span></div></div>
+
+  </div>
+</div>
+<!-- SVG 依赖连线层（由 aPaaS 自定义组件绘制，参见顶部注释第八节算法说明） -->
+<svg id="dep-svg" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:5;">
+  <defs>
+    <marker id="arr-r" markerWidth="5" markerHeight="4" refX="4.5" refY="2" orient="auto">
+      <polygon points="0 0,5 2,0 4" fill="context-stroke"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+</div>
+
+</body>
+</html>

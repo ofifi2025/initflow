@@ -1,0 +1,538 @@
+<!DOCTYPE html><script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Saas Tob Tracker",
+  "schemaVersion": 1,
+  "description": "ToB SaaS 新项目资源配置进度看板，含 17 项任务，按阶段分组，可点击切换状态、填写负责人，进度持久保存。"
+}
+</script>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>资源配置进度甘特图</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #f8fafc; color: #1e293b;
+      padding: 16px 16px 40px; font-size: 13px;
+    }
+
+    h1 { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+    .subtitle { font-size: 11px; color: #94a3b8; margin-bottom: 12px; }
+
+    .prog-card { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:11px 14px; margin-bottom:10px; }
+    .prog-top  { display:flex; justify-content:space-between; align-items:center; margin-bottom:7px; }
+    .prog-label { font-size:11px; color:#64748b; font-weight:600; }
+    .prog-count { font-size:12px; font-weight:700; color:#1e293b; }
+    .prog-bar-bg { height:6px; background:#e2e8f0; border-radius:3px; overflow:hidden; }
+    .prog-bar-fill { height:100%; background:linear-gradient(90deg,#6366f1,#10b981); border-radius:3px; transition:width .3s ease; }
+    .stat-row { display:flex; gap:10px; margin-top:9px; flex-wrap:wrap; }
+    .stat-chip { display:flex; align-items:center; gap:4px; font-size:10px; color:#64748b; background:#f8fafc; border:1px solid #e2e8f0; border-radius:5px; padding:2px 7px; }
+    .stat-dot  { width:7px; height:7px; border-radius:50%; }
+
+    .dept-strip { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; margin-bottom:10px; }
+    .dept-strip-label { font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
+    .dept-chips { display:flex; gap:8px; flex-wrap:wrap; }
+    .dept-chip { display:flex; align-items:center; gap:6px; border-radius:6px; padding:5px 11px; font-size:11px; font-weight:600; border:1px solid; }
+    .dept-chip-stat { font-size:10px; font-weight:400; opacity:.8; }
+    .dc-ok      { background:#f8fafc; color:#64748b;  border-color:#e2e8f0; }
+    .dc-active  { background:#eff6ff; color:#1d4ed8;  border-color:#bfdbfe; }
+    .dc-blocked { background:#fff1f2; color:#be123c;  border-color:#fecdd3; }
+    .dc-done    { background:#f0fdf4; color:#15803d;  border-color:#bbf7d0; }
+
+    .gantt-scroll { overflow-x:auto; width:100%; }
+    .gantt-outer {
+      width: 100%;
+      min-width: 750px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      position: relative;
+      overflow: hidden;
+      padding-right: 5px;
+    }
+
+    #dep-svg {
+      position:absolute; top:0; left:0;
+      width:100%; height:100%;
+      pointer-events:none; overflow:visible; z-index:5;
+    }
+
+    /* Grid: dept | Phase1 | Phase2 | Phase3 */
+    .g-grid {
+      display: grid;
+      grid-template-columns: 65px 1fr 1fr 1fr;
+    }
+
+    .gh-cell {
+      padding: 10px 12px; text-align: center;
+      border-right: 1px solid #e2e8f0;
+      border-bottom: 2px solid #e2e8f0;
+      background: #fafbfc;
+    }
+    .gh-cell:first-child  { border-right: 2px solid #e2e8f0; background: #f1f5f9; }
+    .gh-cell:last-child   { border-right: none; }
+    .gh-num   { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:#94a3b8; margin-bottom:3px; }
+    .gh-name  { font-size:12px; font-weight:700; color:#374151; letter-spacing:.2px; }
+    .gh-badge { display:inline-block; font-size:9px; font-weight:600; padding:2px 7px; border-radius:10px; margin-top:4px; }
+    .b-day1 { background:#fff0e6; color:#b45309; }
+    .b-ph1  { background:#d1fae5; color:#065f46; }
+    .b-ph2  { background:#ede9fe; color:#5b21b6; }
+
+    .dl {
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 4px;
+      font-size: 10px; font-weight: 700; letter-spacing: .3px;
+      padding: 10px 4px; text-align: center;
+      background: #f1f5f9;
+      color: #4b5563;
+      border-right: 2px solid #e2e8f0;
+      box-shadow: inset -3px 0 6px rgba(0,0,0,.04);
+    }
+    .dl-icon { font-size: 15px; line-height: 1; }
+    .ds { border-top: 1px solid #e2e8f0; }
+
+    .pc {
+      position: relative;
+      padding: 10px 0;              /* no horizontal padding — bar's own 12px margin governs */
+      border-right: 1px solid #e2e8f0;
+      border-bottom: 1px solid #f1f5f9;
+      min-height: 78px;
+      display: flex; align-items: center;
+    }
+    .pc.lc { border-right: none; }
+
+    /* Fixed 10px side margin regardless of column span → edges always align */
+    .bar { position:relative; width:calc(100% - 30px); margin:0 auto; padding:10px 16px; min-height:60px; display:flex; flex-direction:column; justify-content:center; border-radius:11px; font-size:10px; font-weight:600; line-height:1.55; cursor:pointer; transition:filter .15s, box-shadow .15s, transform .12s; user-select:none; box-shadow:0 2px 4px rgba(0,0,0,.05); }
+    .bar:hover { filter:brightness(.97); box-shadow:0 3px 10px rgba(0,0,0,.10); transform:translateY(-1px); }
+
+    /* Phase-based colors — muted Morandi palette */
+    .bar-ph1      { background:#fef6ee; color:#92400e; border:1px solid #fcd9aa; }
+    .bar-ph1-dash { background:#fef6ee; color:#92400e; border:1px dashed #fde8c8; }
+    .bar-ph2      { background:#f0fdf4; color:#166534; border:1px solid #86efac; }
+    .bar-ph2-dash { background:#f0fdf4; color:#166534; border:1px dashed #bbf7d0; }
+    .bar-ph3      { background:#eff6ff; color:#1e3a8a; border:1px solid #bfdbfe; }
+
+    .bar.st-pending  { background:#f8fafc!important; border-color:#e2e8f0!important; color:#9ca3af!important; font-weight:400!important; box-shadow:none!important; }
+    .bar.st-progress { background:#ecfdf5!important; border:1.5px solid #34d399!important; color:#065f46!important; font-weight:700!important; animation:pulse-progress 2.2s ease-in-out infinite; }
+    .bar.st-done     { background:#475569!important; border-color:#334155!important; color:#cbd5e1!important; font-weight:400!important; opacity:.78; box-shadow:none!important; }
+    @keyframes pulse-progress {
+      0%,100% { box-shadow:0 0 0 2px rgba(52,211,153,.3), 0 2px 4px rgba(0,0,0,.05); }
+      50%      { box-shadow:0 0 0 5px rgba(52,211,153,.10), 0 2px 4px rgba(0,0,0,.05); }
+    }
+
+    .spill { display:inline-block; font-size:8px; font-weight:600; padding:1px 6px; border-radius:8px; margin-top:4px; letter-spacing:.2px; }
+    .sp-pending  { background:#e5e7eb; color:#9ca3af; }
+    .sp-progress { background:#a7f3d0; color:#065f46; }
+    .sp-done     { background:#334155; color:#94a3b8; }
+
+    .crit, .flag-icon {
+      position: absolute;
+      top: -10px; left: -10px;
+      font-size: 22px; line-height: 1;
+      filter: drop-shadow(0 1px 4px rgba(0,0,0,.30));
+      pointer-events: none; z-index: 10;
+    }
+
+    /* dep-arrow styles set via JS inline styles for hover transition */
+  </style>
+</head>
+<body>
+
+<h1>资源配置进度甘特图</h1>
+<p class="subtitle">点击任务条切换状态 · 箭头表示依赖关系 · 进度自动保存</p>
+
+<div class="prog-card">
+  <div class="prog-top">
+    <span class="prog-label">整体进度</span>
+    <span class="prog-count" id="prog-count">—</span>
+  </div>
+  <div class="prog-bar-bg"><div class="prog-bar-fill" id="prog-fill" style="width:0%"></div></div>
+  <div class="stat-row">
+    <div class="stat-chip"><div class="stat-dot" style="background:#94a3b8"></div><span id="c-pending">—</span> 待启动</div>
+    <div class="stat-chip"><div class="stat-dot" style="background:#6366f1"></div><span id="c-progress">—</span> 进行中</div>
+    <div class="stat-chip"><div class="stat-dot" style="background:#10b981"></div><span id="c-done">—</span> 已完成</div>
+  </div>
+</div>
+
+<div class="dept-strip">
+  <div class="dept-strip-label">部门状态</div>
+  <div class="dept-chips" id="dept-chips"></div>
+</div>
+
+<div class="gantt-scroll">
+<div id="gantt-wrap" style="position:relative;min-width:750px;width:100%">
+<div class="gantt-outer" id="gantt-outer">
+  <div class="g-grid">
+
+    <!-- Header -->
+    <div class="gh-cell" style="font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;justify-content:center;">部门</div>
+    <div class="gh-cell">
+      <div class="gh-num">Phase 1</div>
+      <div class="gh-name">信息确认</div>
+      <span class="gh-badge b-day1">⏱ 3日内完成</span>
+    </div>
+    <div class="gh-cell">
+      <div class="gh-num">Phase 2</div>
+      <div class="gh-name">基建和凭证采购</div>
+      <span class="gh-badge b-ph1">⏱ 1周内完成</span>
+    </div>
+    <div class="gh-cell">
+      <div class="gh-num">Phase 3</div>
+      <div class="gh-name">部署建设</div>
+      <span class="gh-badge b-ph2">📅 根据预计上线日期倒推</span>
+    </div>
+
+    <!-- ══ 业务方 · 1 row ══ -->
+    <div class="dl" id="dl-biz"><span class="dl-icon">🏢</span>业务方</div>
+    <div class="pc"><div class="bar bar-ph1" id="bar-biz" onclick="cycleBar('biz')">确认官网域名<br/><span class="spill sp-pending" id="pill-biz">待启动</span></div></div>
+    <div class="pc"></div>
+    <div class="pc lc"></div>
+
+    <!-- ══ 财务 · 3 rows ══ -->
+    <div class="dl ds" id="dl-caiwu" style="grid-row:span 3"><span class="dl-icon">💰</span>财务</div>
+    <!-- 运营主体 -->
+    <div class="pc ds"><div class="bar bar-ph1" id="bar-s1" onclick="cycleBar('s1')">确定运营主体<br/><span class="spill sp-pending" id="pill-s1">待启动</span></div></div>
+    <div class="pc ds"></div><div class="pc ds lc"></div>
+    <!-- 付款主体 -->
+    <div class="pc"><div class="bar bar-ph1" id="bar-s2" onclick="cycleBar('s2')">确认采购付款主体<br/><span class="spill sp-pending" id="pill-s2">待启动</span></div></div>
+    <div class="pc"></div><div class="pc lc"></div>
+    <!-- 收款账户：Phase1 确认渠道 + Phase2-3 注册账户（长周期） -->
+    <div class="pc"><div class="bar bar-ph1" id="bar-rcv1" onclick="cycleBar('rcv1')">确认用户支付渠道<br/><span class="spill sp-pending" id="pill-rcv1">待启动</span></div></div>
+    <div class="pc lc" style="grid-column:span 2;"><div class="bar bar-ph2-dash" id="bar-rcv2" onclick="cycleBar('rcv2')">注册支付账户（长周期）<br/><span class="spill sp-pending" id="pill-rcv2">待启动</span></div></div>
+
+    <!-- ══ 采购 · 2 rows ══ -->
+    <div class="dl ds" id="dl-caigou" style="grid-row:span 2"><span class="dl-icon">🛒</span>采购</div>
+    <!-- 运营账号 -->
+    <div class="pc ds"></div>
+    <div class="pc ds"><div class="bar bar-ph2" id="bar-cloud" onclick="cycleBar('cloud')">运营账号注册<br/><span class="spill sp-pending" id="pill-cloud">待启动</span></div></div>
+    <div class="pc ds lc"></div>
+    <!-- 生产账号 -->
+    <div class="pc"></div>
+    <div class="pc"><div class="bar bar-ph2" id="bar-cloudp" onclick="cycleBar('cloudp')">生产账号注册<br/><span class="spill sp-pending" id="pill-cloudp">待启动</span></div></div>
+    <div class="pc lc"></div>
+
+    <!-- ══ PMO · 2 rows ══ -->
+    <div class="dl ds" id="dl-pmo" style="grid-row:span 2"><span class="dl-icon">📊</span>PMO</div>
+    <div class="pc ds"><div class="bar bar-ph1" id="bar-repo" onclick="cycleBar('repo')">创建项目 GitLab 仓库<br/><span class="spill sp-pending" id="pill-repo">待启动</span></div></div>
+    <div class="pc ds"><div class="bar bar-ph2" id="bar-domain" onclick="cycleBar('domain')">域名购买 + SSL 证书<br/><span class="spill sp-pending" id="pill-domain">待启动</span></div></div>
+    <div class="pc ds lc"></div>
+
+    <div class="pc"></div>
+    <div class="pc lc" style="grid-column:span 2;"><div class="bar bar-ph2-dash" id="bar-icp" onclick="cycleBar('icp')">域名备案（国内网站必须）<br/><span class="spill sp-pending" id="pill-icp">待启动</span></div></div>
+
+    <!-- ══ 运维 · 1 row ══ -->
+    <div class="dl ds" id="dl-yunwei"><span class="dl-icon">🛠️</span>运维</div>
+    <div class="pc ds" style="grid-column:span 2"><div class="bar bar-ph1-dash" id="bar-env" onclick="cycleBar('env')">确认测试账号 + 基础服务联调<br/><span class="spill sp-pending" id="pill-env">待启动</span></div></div>
+    <div class="pc ds lc"><div class="bar bar-ph3" id="bar-srv2" onclick="cycleBar('srv2')">服务器部署<br/><span class="spill sp-pending" id="pill-srv2">待启动</span></div></div>
+
+    <!-- ══ 生态中心 · 1 row ══ -->
+    <div class="dl ds" id="dl-shengtai"><span class="dl-icon">🌐</span>生态中心</div>
+    <div class="pc ds"></div><div class="pc ds"></div>
+    <div class="pc ds lc"><div class="bar bar-ph3" id="bar-depa" onclick="cycleBar('depa')">生态中心私有化部署<br/><span class="spill sp-pending" id="pill-depa">待启动</span></div></div>
+
+    <!-- ══ 云资源 · 2 rows ══ -->
+    <div class="dl ds" id="dl-yunziyuan" style="grid-row:span 2"><span class="dl-icon">☁️</span>云资源</div>
+    <div class="pc ds"></div><div class="pc ds"></div>
+    <div class="pc ds lc"><div class="bar bar-ph3" id="bar-depb" onclick="cycleBar('depb')">代理服务<br/><span class="spill sp-pending" id="pill-depb">待启动</span></div></div>
+
+    <div class="pc"></div><div class="pc"></div>
+    <div class="pc lc"><div class="bar bar-ph3" id="bar-depc" onclick="cycleBar('depc')">LLM 部署<br/><span class="spill sp-pending" id="pill-depc">待启动</span></div></div>
+
+  </div>
+</div>
+<svg id="dep-svg" xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:0;left:0;pointer-events:none;overflow:visible;z-index:5;">
+  <defs>
+    <!-- context-stroke: marker inherits the path's stroke color automatically -->
+    <marker id="arr-r" markerWidth="5" markerHeight="4" refX="4.5" refY="2" orient="auto">
+      <polygon points="0 0,5 2,0 4" fill="context-stroke"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+</div>
+
+<script>
+const ALL_IDS = ['biz','s1','s2','rcv1','rcv2','cloud','cloudp','repo','domain','icp','env','srv2','depa','depb','depc'];
+const CYCLE   = ['pending','progress','done'];
+const META    = {
+  pending:  { label:'待启动', pill:'sp-pending',  bar:'st-pending'  },
+  progress: { label:'进行中', pill:'sp-progress', bar:'st-progress' },
+  done:     { label:'已完成', pill:'sp-done',     bar:'st-done'     },
+};
+
+const DEPTS = ['业务方','财务','采购','PMO','运维','生态中心','云资源'];
+
+const TASK_DEPT = {
+  biz:'业务方',
+  s1:'财务', s2:'财务', rcv1:'财务', rcv2:'财务',
+  cloud:'采购', cloudp:'采购',
+  repo:'PMO', domain:'PMO', icp:'PMO',
+  env:'运维', srv2:'运维',
+  depa:'生态中心',
+  depb:'云资源', depc:'云资源',
+};
+
+const DL_IDS = { '业务方':'dl-biz','财务':'dl-caiwu','采购':'dl-caigou','PMO':'dl-pmo','运维':'dl-yunwei','生态中心':'dl-shengtai','云资源':'dl-yunziyuan' };
+
+let state = {};
+try { state = JSON.parse(localStorage.getItem('gantt-v2') || '{}'); } catch(e) {}
+
+function getStatus(id) { return state[id]?.status || 'pending'; }
+
+function cycleBar(id) {
+  const next = CYCLE[(CYCLE.indexOf(getStatus(id)) + 1) % CYCLE.length];
+  if (!state[id]) state[id] = {};
+  state[id].status = next;
+  try { localStorage.setItem('gantt-v2', JSON.stringify(state)); } catch(e) {}
+  applyBar(id);
+  updateProgress();
+  updateDeptStrip();
+  drawArrows();
+}
+
+function applyBar(id) {
+  const meta = META[getStatus(id)];
+  const bar  = document.getElementById('bar-' + id);
+  const pill = document.getElementById('pill-' + id);
+  if (!bar || !pill) return;
+  bar.classList.remove('st-pending','st-progress','st-done');
+  if (meta.bar) bar.classList.add(meta.bar);
+  pill.className   = 'spill ' + meta.pill;
+  pill.textContent = meta.label;
+}
+
+function updateDeptStrip() {
+  const c = document.getElementById('dept-chips');
+  c.innerHTML = '';
+  DEPTS.forEach(name => {
+    const ids = ALL_IDS.filter(id => TASK_DEPT[id] === name);
+    if (!ids.length) return;
+    const progress = ids.filter(id => getStatus(id) === 'progress').length;
+    const done     = ids.filter(id => getStatus(id) === 'done').length;
+    let cls = 'dc-ok', stat = `${done}/${ids.length} 完成`;
+    if (progress > 0)            { cls = 'dc-active'; stat = `${progress} 项进行中`; }
+    else if (done === ids.length) { cls = 'dc-done';   stat = '✓ 全部完成'; }
+    const chip = document.createElement('div');
+    chip.className = `dept-chip ${cls}`;
+    chip.innerHTML = `<span>${name}</span><span class="dept-chip-stat">${stat}</span>`;
+    c.appendChild(chip);
+  });
+}
+
+function updateProgress() {
+  const done = ALL_IDS.filter(id => getStatus(id) === 'done').length;
+  const prog = ALL_IDS.filter(id => getStatus(id) === 'progress').length;
+  const pct  = Math.round(done / ALL_IDS.length * 100);
+  document.getElementById('prog-fill').style.width  = pct + '%';
+  document.getElementById('prog-count').textContent = `${done} / ${ALL_IDS.length} 已完成`;
+  document.getElementById('c-pending').textContent  = ALL_IDS.length - done - prog;
+  document.getElementById('c-progress').textContent = prog;
+  document.getElementById('c-done').textContent     = done;
+}
+
+// Orthogonal routing; 'right-right' arrows loop along the right edge and enter target from the right
+const DEPS = [
+  // ── existing ──────────────────────────────────────────────────
+  { from:'bar-biz',    to:'bar-rcv2',   color:'#0891b2' },
+  { from:'bar-biz',    to:'bar-domain', color:'#0891b2' },
+  { from:'bar-s1',     to:'bar-cloud',  color:'#f97316' },
+  { from:'bar-s1',     to:'bar-cloudp', color:'#f97316' },
+  { from:'bar-s1',     to:'bar-domain', color:'#f97316' },
+  { from:'bar-cloud',  to:'bar-srv2',   color:'#6366f1' },
+  { from:'bar-cloudp', to:'bar-depb',   color:'#9333ea' },
+  { from:'bar-cloudp', to:'bar-depc',   color:'#9333ea' },
+  // ── new ───────────────────────────────────────────────────────
+  { from:'bar-s2',     to:'bar-cloud',  color:'#f97316' },
+  { from:'bar-s2',     to:'bar-cloudp', color:'#f97316' },
+  { from:'bar-rcv1',   to:'bar-rcv2',   color:'#0891b2', exit:'direct' },
+];
+
+function drawArrows() {
+  const outer = document.getElementById('gantt-outer');
+  const svg   = document.getElementById('dep-svg');
+  const or    = outer.getBoundingClientRect();
+  svg.querySelectorAll('.dep-arrow').forEach(p => p.remove());
+  svg.style.width  = outer.offsetWidth  + 'px';
+  svg.style.height = outer.offsetHeight + 'px';
+
+  // Column gutters (midpoint between adjacent header cell edges)
+  const hdrs = document.querySelectorAll('.gh-cell');
+  const hr   = Array.from(hdrs).map(h => h.getBoundingClientRect());
+  const g12  = (hr[1].right + hr[2].left) / 2 - or.left;  // Ph1↔Ph2
+  const g23  = (hr[2].right + hr[3].left) / 2 - or.left;  // Ph2↔Ph3
+  // Right-side loop track: 15px outside the grid right border (matches bar margin = 15px)
+  const gRR  = or.width + 15;
+
+  function rel(el) {
+    const r = el.getBoundingClientRect();
+    return { right: r.right - or.left, left: r.left - or.left,
+             cy: (r.top + r.bottom) / 2 - or.top, height: r.height };
+  }
+
+  // Choose gutter so the final H segment always arrives in the correct direction
+  function chooseGutter(x0, x1) {
+    if (x0 < x1) {
+      const cands = [g12, g23].filter(g => g > x0 + 2 && g < x1 - 2);
+      return cands.length ? cands[cands.length - 1] : (x0 + x1) / 2;
+    } else {
+      const cands = [g12, g23].filter(g => g < x1 - 2);
+      return cands.length ? cands[cands.length - 1] : x1 - 30;
+    }
+  }
+
+  // ── Pass 1: count entry ports per side (left vs right) ───────────────────────
+  const fromTotal = {}, toLeftTotal = {}, toRightTotal = {};
+  const fromSeen  = {}, toLeftSeen  = {}, toRightSeen  = {};
+  DEPS.forEach(dep => {
+    fromTotal[dep.from] = (fromTotal[dep.from] || 0) + 1;
+    if (dep.exit === 'right-right') {
+      toRightTotal[dep.to] = (toRightTotal[dep.to] || 0) + 1;
+    } else if (dep.exit !== 'direct') {
+      toLeftTotal[dep.to]  = (toLeftTotal[dep.to]  || 0) + 1;
+    }
+  });
+  DEPS.forEach(dep => {
+    if (fromSeen[dep.from] == null) fromSeen[dep.from] = 0;
+    dep._fi = fromSeen[dep.from]++;
+    dep._fn = fromTotal[dep.from];
+    if (dep.exit === 'right-right') {
+      if (toRightSeen[dep.to] == null) toRightSeen[dep.to] = 0;
+      dep._ti = toRightSeen[dep.to]++;
+      dep._tn = toRightTotal[dep.to];
+    } else {
+      if (toLeftSeen[dep.to] == null) toLeftSeen[dep.to] = 0;
+      dep._ti = toLeftSeen[dep.to]++;
+      dep._tn = toLeftTotal[dep.to];
+    }
+  });
+
+  // Pre-compute gutter X per dep (no X stagger → shared-gutter paths form one bus trunk)
+  DEPS.forEach(dep => {
+    const fEl = document.getElementById(dep.from);
+    const tEl = document.getElementById(dep.to);
+    if (!fEl || !tEl) return;
+    if (dep.exit === 'direct') {
+      dep._gx = 0; // unused for direct lines
+    } else if (dep.exit === 'right-right') {
+      dep._gx = gRR;
+    } else {
+      const f = rel(fEl), t = rel(tEl);
+      dep._gx = Math.round(chooseGutter(f.right, t.left));
+    }
+  });
+
+  const MIN_TAIL = 15; // matches the 15px bar margin from calc(100% - 30px)
+
+  // ── Pass 2: draw ─────────────────────────────────────────────────────────────
+  DEPS.forEach(dep => {
+    const fEl = document.getElementById(dep.from);
+    const tEl = document.getElementById(dep.to);
+    if (!fEl || !tEl || dep._gx == null) return;
+    const f = rel(fEl), t = rel(tEl);
+
+    // Bus routing: all arrows from the same source share y0 = f.cy (single exit trunk)
+    const x0 = Math.round(f.right);
+    const y0 = Math.round(f.cy);
+
+    // Target port: proportional distribution by bar height
+    const N  = dep._tn;
+    const y1 = Math.round(t.cy + (dep._ti - (N - 1) / 2) * (t.height / (N + 1)));
+
+    let d;
+    if (dep.exit === 'direct') {
+      // Straight line: source right-center → target left-center (same row, no bends)
+      d = `M${x0} ${y0} L${Math.round(t.left)} ${Math.round(t.cy)}`;
+    } else if (dep.exit === 'right-right') {
+      // Exit: source.right → gRR  (rcv2/icp have margin-right:45px → exit = 45px)
+      // Entry: gRR → gRR-15        (target bars have margin-right:15px → backtrack = 15px)
+      const x1 = dep._gx - 15;
+      d = `M${x0} ${y0} H${dep._gx} V${y1} H${x1}`;
+    } else {
+      let gx = dep._gx;
+      if (t.left - gx < MIN_TAIL) gx = t.left - MIN_TAIL;
+      const x1 = Math.round(t.left);
+      d = `M${x0} ${y0} H${gx} V${y1} H${x1}`;
+    }
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('class', 'dep-arrow');
+    path.setAttribute('data-from',  dep.from);
+    path.setAttribute('data-to',    dep.to);
+    path.setAttribute('data-color', dep.color);
+    path.setAttribute('marker-end', 'url(#arr-r)');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('stroke-linecap',  'round');
+    path.style.stroke          = dep.color;
+    path.style.strokeWidth     = '2';
+    path.style.strokeDasharray = 'none';
+    path.style.opacity         = '0';
+    path.style.transition      = 'opacity 0.2s ease';
+    svg.appendChild(path);
+  });
+}
+
+// Full-chain recursive dependency highlighting (upstream + downstream)
+function highlightArrows(barId, on) {
+  const svg   = document.getElementById('dep-svg');
+  const paths = svg.querySelectorAll('.dep-arrow');
+
+  if (!on) {
+    paths.forEach(p => { p.style.opacity = '0'; p.style.strokeWidth = '2'; });
+    return;
+  }
+
+  const fullId = 'bar-' + barId;
+
+  // Collect every arrow on chains leading TO or FROM fullId (recursive)
+  const relevantDeps = new Set();
+
+  function findUpstream(id, seen = new Set()) {
+    if (seen.has(id)) return; seen.add(id);
+    DEPS.forEach(dep => {
+      if (dep.to === id) { relevantDeps.add(dep); findUpstream(dep.from, seen); }
+    });
+  }
+  function findDownstream(id, seen = new Set()) {
+    if (seen.has(id)) return; seen.add(id);
+    DEPS.forEach(dep => {
+      if (dep.from === id) { relevantDeps.add(dep); findDownstream(dep.to, seen); }
+    });
+  }
+  findUpstream(fullId);
+  findDownstream(fullId);
+
+  paths.forEach(p => {
+    const from = p.getAttribute('data-from');
+    const to   = p.getAttribute('data-to');
+    const dep  = DEPS.find(d => d.from === from && d.to === to);
+    if (dep && relevantDeps.has(dep)) {
+      // Direct = immediately connected to hovered bar; indirect = rest of chain
+      p.style.opacity     = '1';
+      p.style.strokeWidth = '2';
+    }
+  });
+}
+
+function initHover() {
+  ALL_IDS.forEach(id => {
+    const el = document.getElementById('bar-' + id);
+    if (!el) return;
+    el.addEventListener('mouseenter', () => highlightArrows(id, true));
+    el.addEventListener('mouseleave', () => highlightArrows(id, false));
+  });
+}
+
+ALL_IDS.forEach(id => applyBar(id));
+updateProgress();
+updateDeptStrip();
+window.addEventListener('load', () => { drawArrows(); initHover(); });
+window.addEventListener('resize', drawArrows);
+</script>
+</body>
+</html>
